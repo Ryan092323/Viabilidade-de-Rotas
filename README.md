@@ -61,3 +61,7 @@ Não há etapa de compilação, instalação de pacotes ou configuração de ban
 - [Cloudflare Pages — integração com Git](https://developers.cloudflare.com/pages/get-started/git-integration/)
 - [Cloudflare Pages — upload direto](https://developers.cloudflare.com/pages/get-started/direct-upload/)
 - [GitHub — enviar arquivos para um repositório](https://docs.github.com/en/repositories/working-with-files/managing-files/adding-a-file-to-a-repository)
+
+## Estrutura modularizada
+
+O painel original foi preservado, incluindo importações, listas, tempos de espera, resumo, exportações e testes. Para manutenção, `index.html` contém a interface, `styles.css` o visual, `data.js` os parâmetros operacionais e `app.js` a lógica. A configuração do Cloudflare permanece com diretório de saída `.` e comando `exit 0`.

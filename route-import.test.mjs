@@ -3,7 +3,7 @@ import vm from "node:vm";
 import crypto from "node:crypto";
 
 const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
-const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(match => match[1]);
+const scripts = [fs.readFileSync(new URL("../data.js", import.meta.url), "utf8") + "\n" + fs.readFileSync(new URL("../app.js", import.meta.url), "utf8")];
 if (scripts.length !== 1) throw new Error(`Esperado 1 script, encontrado ${scripts.length}`);
 
 class FakeClassList {

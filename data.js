@@ -1,0 +1,4 @@
+// Parâmetros operacionais originais do painel.
+window.PROFILE_CONFIG={"3/4":{capacity:5000,rate:5.8,label:"3/4"},TOCO:{capacity:7000,rate:5.6,label:"Toco"},TRUCK:{capacity:12000,rate:5.3,label:"Truck"},BITRUCK:{capacity:16000,rate:5.3,label:"Bitruck"},CARRETA:{capacity:26000,rate:5.3,label:"Carreta"}};
+    window.TARGET_CONFIG={AGRESTE_1:{label:"Agreste 1",value:.441},AGRESTE_2:{label:"Agreste 2",value:.441},SERTAO:{label:"Sertão",value:.945},RMR:{label:"RMR",value:.5},ZONA_DA_MATA:{label:"Zona da Mata",value:.5},RN:{label:"Rio Grande do Norte",value:1.6},CE:{label:"Ceará",value:.7},PB:{label:"Paraíba",value:.56},AL:{label:"Alagoas",value:.91},MARANHAO:{label:"Maranhão",value:1.6}};
+    window.CUSTOMER_CONFIG={RETAIL:{label:"Varejo",minutes:30,short:"30 min"},NETWORK:{label:"Rede",minutes:180,short:"3 h"}};
