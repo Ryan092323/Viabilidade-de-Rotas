@@ -34,24 +34,24 @@
           <span><strong>Escolha ou arraste sua planilha aqui</strong><span>Formatos aceitos: Excel .xlsx, CSV e TSV · até 5 MB</span></span>
           <input id="bulk-file" type="file" accept=".xlsx,.csv,.tsv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
         </label>
-        <p class="bulk-hint">A planilha precisa ter ROTA, PERFIL, PESO TOTAL, KM e ENTREGAS. Use CARROS para dividir o peso entre os veículos e UNIDADE PESO com KG ou TON. Se a linha não tiver unidade, valores como 12.198 serão reconhecidos como Ton (12.198,00 kg); valores no formato 12.198,00 permanecem em kg.</p>
+        <p class="bulk-hint">A planilha precisa ter ROTA, PERFIL, PESO TOTAL e ENTREGAS. O KM vazio ou sem coluna será preenchido com a média cadastrada da rota; valores informados serão mantidos. Use CARROS para dividir o peso entre os veículos e UNIDADE PESO com KG ou TON. Se a linha não tiver unidade, valores como 12.198 serão reconhecidos como Ton (12.198,00 kg); valores no formato 12.198,00 permanecem em kg.</p>
         <div id="bulk-file-status" class="bulk-status" role="status" aria-live="polite"></div>
       </div>
       <div id="bulk-paste-panel" class="bulk-workspace is-hidden" data-bulk-panel="paste">
         <label for="bulk-paste"><strong>Cole as linhas copiadas do Excel</strong></label>
         <textarea id="bulk-paste" class="bulk-textarea" placeholder="ROTA&#9;PERFIL&#9;CARROS&#9;PESO TOTAL&#9;UNIDADE PESO&#9;KM&#9;ENTREGAS&#10;AG1 CARUARU&#9;3/4&#9;2&#9;9,41&#9;TON&#9;121&#9;18"></textarea>
-        <p class="bulk-hint">Mantenha a primeira linha com os nomes das colunas. Use KG ou TON na unidade; linhas sem unidade reconhecem automaticamente números com ponto decimal, como 12.198, como Ton.</p>
+        <p class="bulk-hint">Mantenha a primeira linha com os nomes das colunas. Deixe o KM vazio para usar a média da rota. Use KG ou TON na unidade; linhas sem unidade reconhecem automaticamente números com ponto decimal, como 12.198, como Ton.</p>
         <div class="bulk-action-line"><button id="analyze-paste" class="btn btn-primary" type="button">Conferir dados colados</button><button id="clear-paste" class="btn btn-ghost" type="button">Limpar</button></div>
       </div>
       <div id="bulk-grid-panel" class="bulk-workspace is-hidden" data-bulk-panel="grid">
         <div class="bulk-grid-wrap"><table class="bulk-grid"><thead><tr><th>Rota</th><th>Perfil</th><th>Carros</th><th>Peso</th><th>Unidade</th><th>KM</th><th>Entregas</th><th>Atendimento</th><th>Modalidade</th><th>Valor carga</th><th>Frete</th><th></th></tr></thead><tbody id="bulk-grid-rows"></tbody></table></div>
-        <p class="bulk-hint">Informe o peso em KG ou TON. O valor será convertido para kg antes de dividir entre os carros. Para frete próprio, deixe “Valor carga” e “Frete” vazios.</p>
+        <p class="bulk-hint">Ao selecionar uma rota cadastrada, o KM médio é preenchido automaticamente e pode ser ajustado. Informe o peso em KG ou TON. O valor será convertido para kg antes de dividir entre os carros. Para frete próprio, deixe “Valor carga” e “Frete” vazios.</p>
         <div class="bulk-action-line"><button id="add-bulk-row" class="btn btn-secondary" type="button">Adicionar linha</button><button id="review-bulk-grid" class="btn btn-primary" type="button">Conferir linhas preenchidas</button><button id="clear-bulk-grid" class="btn btn-ghost" type="button">Limpar tabela</button></div>
       </div>
       <div id="bulk-review" class="bulk-review is-hidden" aria-live="polite">
         <div class="bulk-review-head"><div><h3>Conferência da importação</h3><p id="bulk-review-summary"></p></div><button id="cancel-bulk-review" class="icon-btn" type="button" aria-label="Fechar conferência">Fechar</button></div>
         <ul id="bulk-errors" class="bulk-errors is-hidden"></ul>
-        <div class="bulk-preview-wrap"><table class="bulk-preview"><thead><tr><th>Linha</th><th>Rota</th><th>Perfil</th><th>Carros</th><th>Unidade</th><th>Peso informado (kg / Ton)</th><th>Peso total (kg / Ton)</th><th>Peso/carro (kg / Ton)</th><th>KM</th><th>Entregas</th><th>Resultado</th></tr></thead><tbody id="bulk-preview-rows"></tbody></table></div>
+        <div class="bulk-preview-wrap"><table class="bulk-preview"><thead><tr><th>Linha</th><th>Rota</th><th>Perfil</th><th>Carros</th><th>Peso total (Ton)</th><th>Peso/carro (Ton)</th><th>KM</th><th>Entregas</th><th>Resultado</th></tr></thead><tbody id="bulk-preview-rows"></tbody></table></div>
         <div class="bulk-confirm"><label class="bulk-replace"><input id="replace-import" type="checkbox"> Substituir as rotas que já estão no painel</label><div class="bulk-action-line"><button id="cancel-bulk" class="btn btn-ghost" type="button">Cancelar</button><button id="confirm-bulk" class="btn btn-primary" type="button">Adicionar rotas válidas</button></div></div>
       </div>
     </section>
@@ -65,17 +65,17 @@
             <div class="field full"><label for="route">Rota</label><input id="route" list="route-options" placeholder="Digite ou escolha a rota" autocomplete="off" required></div>
             <datalist id="route-options">
               <option value="AG1 AGRESTINA"></option><option value="AG1 CARUARU"></option><option value="AG1 CARUARU REDES"></option><option value="AG1 JATAUBA"></option><option value="AG1 STC CAPIBARIBE"></option><option value="AG1 STC CAPIBA REDES"></option><option value="AG1 SURUBIM"></option>
-              <option value="AG2 AGUAS BELAS"></option><option value="AG2 ARCOVERDE"></option><option value="AG2 ARCOVERDE REDES"></option><option value="AG2 BELO JARDIM"></option><option value="AG2 BELO JARDIM REDES"></option><option value="AG2 BOM CONSELHO"></option><option value="AG2 BUIQUE"></option><option value="AG2 GARANHUNS"></option><option value="AG2 GARANHUNS REDES"></option><option value="AG2 LAJEDO"></option><option value="AG2 PESQUEIRA"></option><option value="AG2 PETROLANDIA"></option><option value="AG2 SAO BENTO DO UNA"></option><option value="AG2 VENTUROSA"></option>
+              <option value="AG2 AGUAS BELAS"></option><option value="AG2 ARCOVERDE"></option><option value="AG2 ARCOVERDE REDES"></option><option value="AG2 BELO JARDIM"></option><option value="AG2 BELO JARDIM REDES"></option><option value="AG2 BOM CONSELHO"></option><option value="AG2 CORRENTES"></option><option value="AG2 BUIQUE"></option><option value="AG2 GARANHUNS"></option><option value="AG2 GARANHUNS REDES"></option><option value="AG2 LAJEDO"></option><option value="AG2 PESQUEIRA"></option><option value="AG2 PETROLANDIA"></option><option value="AG2 SAO BENTO DO UNA"></option><option value="AG2 SAO JOAO"></option><option value="AG2 VENTUROSA"></option>
               <option value="AL ARAPIRACA"></option><option value="AL MACEIO"></option><option value="AL MACEIO REDES"></option><option value="PB CAMPINA GRANDE"></option><option value="PB PATOS"></option>
               <option value="SRT ARARIPINA"></option><option value="SRT ARARIPINA REDES"></option><option value="SRT CABROBO"></option><option value="SRT FLORESTA"></option><option value="SRT INGAZEIRA"></option><option value="SRT MIRANDIBA"></option><option value="SRT OURICURI"></option><option value="SRT PETROLINA"></option><option value="SRT PETROLINA REDES"></option><option value="SRT SALGUEIRO"></option><option value="SRT SERRA TALHADA"></option><option value="SRT SERRA TALHADA REDES"></option><option value="SRT SERTANIA"></option><option value="CEARA"></option><option value="MARANHAO"></option>
             </datalist>
             <div class="field"><label for="freight-mode">Modalidade</label><select id="freight-mode"><option value="OWN">Frete próprio</option><option value="CONTRACTED">Transportadora</option></select></div>
             <div class="field"><label for="profile">Perfil do veículo</label><select id="profile"><option value="3/4">3/4</option><option value="TOCO">Toco</option><option value="TRUCK">Truck</option><option value="BITRUCK">Bitruck</option><option value="CARRETA">Carreta</option></select></div>
-            <div class="profile-note"><div><span>Capacidade por carro</span><strong id="profile-capacity">5.000 kg</strong></div><div><span>Custo por KM/carro</span><strong id="profile-rate">R$ 5,80</strong></div></div>
+            <div class="profile-note"><div><span>Capacidade por carro</span><strong id="profile-capacity">5 Ton</strong></div><div><span>Custo por KM/carro</span><strong id="profile-rate">R$ 5,80</strong></div></div>
             <div class="field"><label for="vehicle-count">Quantidade de carros</label><input id="vehicle-count" type="number" min="1" max="100" step="1" value="1" required></div>
-            <div class="field"><label for="weight">Peso total da rota</label><div class="input-suffix"><input id="weight" type="number" min="0.01" step="0.01" required><span id="weight-suffix">kg</span></div><div class="weight-unit-note">O valor será convertido para kg nos cálculos.</div></div>
+            <div class="field"><label for="weight">Peso total da rota</label><div class="input-suffix"><input id="weight" type="number" min="0.01" step="0.01" required><span id="weight-suffix">kg</span></div><div class="weight-unit-note">Escolha a unidade do valor informado.</div></div>
             <div class="field"><label for="weight-unit">Unidade do peso</label><select id="weight-unit"><option value="KG">kg</option><option value="TON">Ton</option></select></div>
-            <div class="field"><label for="km">KM previsto</label><div class="input-suffix"><input id="km" type="text" inputmode="decimal" placeholder="Ex.: 1.064" aria-describedby="km-help" required><span>km</span></div><div id="km-help" class="weight-unit-note">1.064 significa mil e sessenta e quatro km.</div></div>
+            <div class="field"><label for="km">KM previsto</label><div class="input-suffix"><input id="km" type="text" inputmode="decimal" placeholder="Ex.: 1.064" aria-describedby="km-help" required><span>km</span></div><div id="km-help" class="weight-unit-note" aria-live="polite">Selecione uma rota para preencher o KM médio por carro. Você pode ajustar o valor.</div></div>
             <div class="field"><label for="deliveries">Entregas</label><input id="deliveries" type="number" min="1" step="1" required></div>
             <div class="field"><label for="customer-type">Atendimento</label><select id="customer-type"><option value="RETAIL">Varejo — 30 min/cliente</option><option value="NETWORK">Rede — 3 h/cliente</option></select></div>
             <div id="target-group-field" class="field"><label for="target-group">Grupo da meta</label><select id="target-group"><option value="AGRESTE_1">Agreste 1</option><option value="AGRESTE_2">Agreste 2</option><option value="SERTAO">Sertão</option><option value="AL">Alagoas</option><option value="PB">Paraíba</option><option value="CE">Ceará</option><option value="RN">Rio Grande do Norte</option><option value="RMR">RMR</option><option value="ZONA_DA_MATA">Zona da Mata</option><option value="MARANHAO">Maranhão</option></select></div>
@@ -91,9 +91,9 @@
       <div class="panel queue-panel">
         <div class="queue-head"><div><p class="eyebrow">Planejamento em montagem</p><h2>Rotas planejadas</h2><p>Edite, duplique ou remova qualquer rota antes de gerar o resumo.</p></div><div id="load-count" class="count-badge">0 rotas</div></div>
         <div class="queue-body">
-          <div id="queue-empty" class="empty-state"><div><div class="empty-icon">+</div><strong>Nenhuma rota planejada</strong><p>Preencha o formulário ao lado para começar o planejamento.</p></div></div>
+          <div id="queue-empty" class="empty-state"><div><div class="empty-icon">+</div><strong>Nenhuma rota planejada</strong><p>Preencha o formulário acima para começar o planejamento.</p></div></div>
           <div id="queue-filled" class="is-hidden">
-            <div class="load-table-wrap"><table class="load-table"><thead><tr><th>#</th><th>Rota</th><th>Perfil</th><th>Carros</th><th>Peso (kg / Ton) / por carro</th><th>KM</th><th>Utilização</th><th>Resultado</th><th>Ações</th></tr></thead><tbody id="load-rows"></tbody></table></div>
+            <div class="load-table-wrap"><table class="load-table"><thead><tr><th>#</th><th>Rota</th><th>Perfil</th><th>Carros</th><th>Peso (Ton) / por carro</th><th>KM</th><th>Utilização</th><th>Resultado</th><th>Ações</th></tr></thead><tbody id="load-rows"></tbody></table></div>
             <div class="queue-footer"><button id="clear-all" class="btn btn-danger" type="button">Excluir todas</button><button id="go-summary" class="btn btn-primary" type="button">Ver resumo consolidado</button></div>
           </div>
         </div>
@@ -106,13 +106,13 @@
       <div id="summary-content" class="summary-content is-hidden">
         <div id="stat-grid" class="stat-grid"></div>
         <div class="summary-layout">
-          <div class="detail-card"><div class="card-head"><h3>Detalhamento do planejamento</h3><span>Pesos exibidos em kg e Ton; cálculos normalizados em kg</span></div><div class="detail-table-wrap"><table class="detail-table"><thead><tr><th>#</th><th>Rota</th><th>Perfil</th><th class="center">Carros</th><th>R$/KM</th><th class="num">Peso total (kg / Ton)</th><th class="num">Peso/carro (kg / Ton)</th><th class="center">KM</th><th class="num">Custo</th><th class="num">R$/KG</th><th class="num">Meta</th><th class="num">Viab./saldo</th><th class="num">Util.</th><th class="center">Entr.</th></tr></thead><tbody id="detail-rows"></tbody></table></div></div>
+          <div class="detail-card"><div class="card-head"><h3>Detalhamento do planejamento</h3><span>Pesos exibidos em toneladas (Ton)</span></div><div class="detail-table-wrap"><table class="detail-table"><thead><tr><th>#</th><th>Rota</th><th>Perfil</th><th class="center">Carros</th><th>R$/KM</th><th class="num">Peso total (Ton)</th><th class="num">Peso/carro (Ton)</th><th class="center">KM</th><th class="num">Custo</th><th class="num">R$/KG</th><th class="num">Meta</th><th class="num">Viab./saldo</th><th class="num">Util.</th><th class="center">Entr.</th></tr></thead><tbody id="detail-rows"></tbody></table></div></div>
           <div class="side-stack">
             <div class="side-card"><h3>Utilização por perfil</h3><div id="profile-summary"></div></div>
             <div id="own-viability-card" class="side-card viability-card"><h3>Viabilidade do frete próprio</h3><div id="own-viability"></div></div>
             <div id="contract-summary-card" class="side-card contract-card is-hidden"><h3>Transportadora contratada</h3><div id="contract-summary"></div></div>
             <div id="overload-card" class="side-card alert-card"><h3 id="overload-title">Veículos acima do limite</h3><div id="overload-summary"></div></div>
-            <div class="side-card route-summary-card"><h3>Resumo por rota</h3><div class="route-table-wrap"><table class="route-table"><thead><tr><th>Rota</th><th>Modalidade</th><th class="center">Veíc.</th><th class="num">Peso (kg / Ton)</th><th class="center">Entr.</th><th class="num">Resultado</th></tr></thead><tbody id="route-rows"></tbody></table></div></div>
+            <div class="side-card route-summary-card"><h3>Resumo por rota</h3><div class="route-table-wrap"><table class="route-table"><thead><tr><th>Rota</th><th>Modalidade</th><th class="center">Veíc.</th><th class="num">Peso (Ton)</th><th class="center">Entr.</th><th class="num">Resultado</th></tr></thead><tbody id="route-rows"></tbody></table></div></div>
           </div>
         </div>
         <div id="summary-foot" class="summary-foot"></div>

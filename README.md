@@ -1,6 +1,6 @@
 # Painel de Viabilidade de Rotas
 
-Versão de 08/10/2026, com as correções de quilômetros e de kg/Ton. Site estático em HTML, CSS e JavaScript, pronto para GitHub e Cloudflare Pages. A calculadora funciona no navegador, sem conta, assinatura ou API do ChatGPT.
+Versão de 09/10/2026, atualizada com o KM médio automático das 38 rotas, formulário acima das rotas planejadas e exibição dos pesos apenas em toneladas (Ton). Site estático em HTML, CSS e JavaScript, pronto para GitHub e Cloudflare Pages. A calculadora funciona no navegador, sem conta, assinatura ou API do ChatGPT.
 
 ## Publicar com GitHub e Cloudflare Pages
 
@@ -32,7 +32,10 @@ Para atualizar pelo GitHub automaticamente, use desde o início o procedimento a
 
 - Planejamento de várias rotas, manualmente, colando dados ou importando `.xlsx`, `.csv` e `.tsv`.
 - Quantidade de carros por rota e divisão do peso total entre eles.
-- Peso em kg e Ton, capacidade de Truck de 12.000 kg e demais perfis do painel atual.
+- Entrada de peso em kg ou Ton, com exibição dos resultados apenas em Ton.
+- Capacidade de Truck de 12 Ton e demais perfis do painel atual.
+- KM médio automático para 38 rotas cadastradas, mantendo a possibilidade de informar outro KM.
+- Formulário Adicionar rota acima de Rotas planejadas, ocupando toda a largura da página.
 - Leitura de KM no padrão brasileiro: `1.064` significa 1064 km; `2.500` significa 2500 km.
 - Custo, utilização, viabilidade média e soma, tempo estimado e resumo consolidado.
 - Exportação do resumo em PNG e impressão / PDF.
@@ -47,7 +50,10 @@ Ao abrir o novo endereço do Cloudflare, importe novamente as planilhas de orige
 
 | Arquivo | Finalidade |
 | --- | --- |
-| `index.html` | Interface e cálculos completos da aplicação |
+| `index.html` | Interface HTML e listas suspensas |
+| `styles.css` | Layout responsivo e identidade visual |
+| `data.js` | Perfis, metas, espera por cliente, 38 médias de KM e aliases de rota |
+| `app.js` | Cálculos, importação, exportação, armazenamento e interações |
 | `jszip.min.js` | Biblioteca local utilizada para ler arquivos Excel |
 | `natto-logo.png` | Logotipo utilizado no painel e no resumo |
 | `tests/route-import.test.mjs` | Verificações dos cálculos e importações |
@@ -62,6 +68,12 @@ Não há etapa de compilação, instalação de pacotes ou configuração de ban
 - [Cloudflare Pages — upload direto](https://developers.cloudflare.com/pages/get-started/direct-upload/)
 - [GitHub — enviar arquivos para um repositório](https://docs.github.com/en/repositories/working-with-files/managing-files/adding-a-file-to-a-repository)
 
-## Estrutura modularizada
 
-O painel original foi preservado, incluindo importações, listas, tempos de espera, resumo, exportações e testes. Para manutenção, `index.html` contém a interface, `styles.css` o visual, `data.js` os parâmetros operacionais e `app.js` a lógica. A configuração do Cloudflare permanece com diretório de saída `.` e comando `exit 0`.
+## Organização do código para manutenção
+
+- `data.js`: custos e capacidades por perfil, metas regionais, tempo de atendimento/espera (Varejo 30 min e Rede 3 h), 38 médias de KM e nomes alternativos.
+- `index.html`: formulário, lista suspensa pesquisável de rotas, tabelas e resumo.
+- `app.js`: toda a lógica existente, inclusive importação Excel/CSV, pesos kg/Ton, divisão entre carros, cálculo, exportação e salvamento local.
+- `styles.css`: apresentação e impressão.
+
+**Atenção:** o planejamento salvo no navegador é local ao endereço de origem; não é incluído no ZIP e não migra automaticamente para o novo domínio.

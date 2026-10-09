@@ -1,10 +1,11 @@
 import fs from "node:fs";
 import vm from "node:vm";
 import crypto from "node:crypto";
+import assert from "node:assert/strict";
 
 const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
-const scripts = [fs.readFileSync(new URL("../data.js", import.meta.url), "utf8") + "\n" + fs.readFileSync(new URL("../app.js", import.meta.url), "utf8")];
-if (scripts.length !== 1) throw new Error(`Esperado 1 script, encontrado ${scripts.length}`);
+const dataScript = fs.readFileSync(new URL("../data.js", import.meta.url), "utf8");
+const appScript = fs.readFileSync(new URL("../app.js", import.meta.url), "utf8");
 
 class FakeClassList {
   add() {}
@@ -26,7 +27,9 @@ function node(selector) {
       children: [],
       classList: new FakeClassList(),
       style: {},
-      addEventListener() {},
+      listeners: {},
+      addEventListener(type, handler) { (this.listeners[type] ||= []).push(handler); },
+      dispatchEvent(event) { event.target ||= this; for (const handler of this.listeners[event.type] || []) handler(event); },
       setAttribute() {},
       appendChild(child) { this.children.push(child); return child; },
       focus() {},
@@ -71,7 +74,8 @@ node("#freight-mode").value = "OWN";
 node("#customer-type").value = "RETAIL";
 node("#target-group").value = "AGRESTE_2";
 vm.createContext(context);
-vm.runInContext(`${scripts[0]}\n;globalThis.__test={calculateLoad,aggregate,parseDelimited,matrixToBulkRecords,recordToCalculated,parseDateValue,parseDistanceKm,readForm,readBulkGrid,prepareBulk,renderAll,restore,duplicateLoad,getLoads:()=>loads,setLoads:value=>{loads=value}};`, context);
+vm.runInContext(dataScript, context);
+vm.runInContext(`${appScript}\n;globalThis.__test={calculateLoad,aggregate,parseDelimited,matrixToBulkRecords,recordToCalculated,parseDateValue,parseDistanceKm,readForm,readBulkGrid,prepareBulk,renderAll,restore,duplicateLoad,editLoad,drawExport,formatTon,ROUTE_KM_AVERAGES,getRouteAverageKm,getLoads:()=>loads,setLoads:value=>{loads=value}};`, context);
 
 const own = context.__test.calculateLoad({
   id: "a",
@@ -293,7 +297,122 @@ context.__test.duplicateLoad(restoredKm.id);
 const duplicatedKm=context.__test.getLoads()[1];
 if (duplicatedKm.km !== 1064 || duplicatedKm.weight !== 9410) throw new Error("Dados convertidos novamente ao duplicar");
 
+// Registered averages fill only missing distances; explicit distances remain authoritative.
+assert.equal(Object.keys(context.__test.ROUTE_KM_AVERAGES).length, 38);
+for (const [route, expected] of [
+  ["AG1 CARUARU",157.47], ["AG1 CARUARU REDES",110.75],
+  [" ag2  águas belas ",344.05], ["AG2 SÃO JOÃO",1185.93],
+  ["AG2 BELO JARDIM REDES",5.25], ["AG2 CORRENTES",354.53],
+  ["AG2 GARANHUNS",171.03], ["AG2 GARANHUNS REDES",535.20],
+  ["AG2 LAJEDO",708.18], ["SRT PETROLINA",1142.97], ["SRT PETROLINA REDES",1061.21],
+  ["AG1 STC CAPIBARIBE REDES",168.91], ["SRT S. TALHADA REDES",458.42]
+]) {
+  const load=context.__test.recordToCalculated({raw:{route,profile:"3/4",weight:4500,weightUnit:"KG",deliveries:3,km:""}});
+  assert.equal(load.km,expected,route);
+}
+for (const route of Object.keys(context.__test.ROUTE_KM_AVERAGES)) {
+  assert.ok(html.includes(`<option value="${route}">`),`Rota ausente nas opções: ${route}`);
+}
+const autoKmInput={route:"AG1 CARUARU",profile:"3/4",vehicleCount:2,weight:"9,41",weightUnit:"TON",deliveries:18};
+const autoKm=context.__test.recordToCalculated({raw:autoKmInput});
+assert.equal(autoKm.km,157.47);
+assert.equal(autoKm.fleetKm,314.94);
+assert.ok(Math.abs(autoKm.cost-1826.652)<1e-8);
+assert.equal(autoKm.weight,9410);
+for (const [input,expected] of [["",157.47],["   ",157.47],["106,25",106.25],["1.064",1064],[0,0]]) {
+  assert.equal(context.__test.recordToCalculated({raw:{...autoKmInput,km:input}}).km,expected);
+}
+assert.throws(()=>context.__test.recordToCalculated({raw:{...autoKmInput,km:"inválido"}}),/quilometragem válida/);
+assert.throws(()=>context.__test.recordToCalculated({raw:{...autoKmInput,route:"ROTA SEM CADASTRO"}}),/sem média cadastrada/);
+assert.equal(context.__test.recordToCalculated({raw:{...autoKmInput,route:"ROTA SEM CADASTRO",km:"210,5"}}).km,210.5);
+
+// CSV, pasted data and spreadsheet matrices may omit the KM column entirely.
+for (const delimiter of [";","\t",","]) {
+  const csv=["ROTA","PERFIL","PESO","UNIDADE PESO","ENTREGAS"].join(delimiter)+"\n"+
+    ["AG2 SÃO JOÃO","TOCO","6500","KG","12"].join(delimiter);
+  const parsed=context.__test.matrixToBulkRecords(context.__test.parseDelimited(csv));
+  assert.equal(context.__test.recordToCalculated(parsed.records[0]).km,1185.93);
+}
+const optionalKmMatrix=context.__test.matrixToBulkRecords([
+  ["ROTA","PERFIL","PESO","ENTREGAS"], ["AG2 BELO JARDIM REDES","TRUCK",11000,3]
+]);
+assert.equal(context.__test.recordToCalculated(optionalKmMatrix.records[0]).km,5.25);
+
+// Actual registered form handlers fill and replace averages without overwriting a same-route edit.
+node("#route").value="AG1 CARUARU";
+node("#route").dispatchEvent({type:"input"});
+assert.equal(node("#km").value,"157,47");
+assert.ok(node("#km-help").textContent.includes("157,47"));
+node("#km").value="144,40";
+node("#route").dispatchEvent({type:"change"});
+assert.equal(node("#km").value,"144,40");
+node("#route").value="AG2 SÃO JOÃO";
+node("#route").dispatchEvent({type:"input"});
+assert.equal(node("#km").value,"1.185,93");
+assert.equal(context.__test.calculateLoad(context.__test.readForm()).km,1185.93);
+node("#route").value="ROTA SEM CADASTRO";
+node("#route").dispatchEvent({type:"change"});
+assert.equal(node("#km").value,"");
+assert.ok(node("#km-help").textContent.includes("sem média cadastrada"));
+
+const gridKmInput={value:"",dataset:{}};
+const routeCell={value:"AL MACEIÓ REDES",dataset:{key:"route"},closest:()=>({querySelector:()=>gridKmInput})};
+node("#bulk-grid-rows").dispatchEvent({type:"input",target:routeCell});
+assert.equal(gridKmInput.value,"435,89");
+gridKmInput.value="420";
+node("#bulk-grid-rows").dispatchEvent({type:"change",target:routeCell});
+assert.equal(gridKmInput.value,"420");
+const blankKmGrid={querySelectorAll:()=>Object.entries(autoKmInput).map(([key,value])=>({dataset:{key},value}))};
+context.document.querySelectorAll=selector=>selector==="#bulk-grid-rows tr"?[blankKmGrid]:[];
+assert.equal(context.__test.recordToCalculated(context.__test.readBulkGrid()[0]).km,157.47);
+context.document.querySelectorAll=()=>[];
+
+context.__test.prepareBulk([{rowNumber:2,raw:autoKmInput}]);
+assert.ok(node("#bulk-preview-rows").innerHTML.includes(">157,47</td>"));
+context.__test.setLoads([autoKm]);context.__test.renderAll();
+assert.ok(node("#detail-rows").innerHTML.includes(">157,47<"));
+assert.ok(node("#stat-grid").innerHTML.includes("314,94"));
+context.localStorage.getItem=()=>JSON.stringify({loads:[autoKm,importedKm]});
+context.__test.restore();
+assert.equal(context.__test.getLoads()[0].km,157.47);
+assert.equal(context.__test.getLoads()[1].km,1064);
+context.__test.editLoad(importedKm.id);
+node("#route").dispatchEvent({type:"change"});
+assert.equal(context.__test.calculateLoad(context.__test.readForm()).km,1064);
+
+// Changing display units must not change the normalized weights or freight calculations.
+assert.equal(context.__test.formatTon(1000),"1 Ton");
+assert.equal(context.__test.formatTon(9410),"9,41 Ton");
+assert.equal(context.__test.formatTon(12320.04),"12,32004 Ton");
+assert.equal(context.__test.formatTon(0.01),"0,00001 Ton");
+assert.equal(node("#profile-capacity").textContent,"5 Ton");
+context.__test.setLoads([importedKm]);context.__test.renderAll();
+for (const selector of ["#load-rows","#detail-rows","#stat-grid","#profile-summary","#route-rows","#summary-foot"]) {
+  assert.ok(node(selector).innerHTML.includes("Ton"),selector);
+  assert.ok(!/\d[\d.,]*\s*kg\b/i.test(node(selector).innerHTML),selector);
+}
+assert.ok(!node("#detail-rows").innerHTML.includes("Informado:"));
+context.__test.prepareBulk([{rowNumber:2,raw:routeInput}]);
+assert.ok(node("#bulk-preview-rows").innerHTML.includes("9,41 Ton"));
+assert.ok(!/\d[\d.,]*\s*kg\b/i.test(node("#bulk-preview-rows").innerHTML));
+const exportedText=[];
+const canvasContext={beginPath(){},roundRect(){},fill(){},stroke(){},fillRect(){},drawImage(){},fillText(value){exportedText.push(String(value));}};
+node("#export-canvas").getContext=()=>canvasContext;
+context.__test.drawExport();
+assert.ok(exportedText.includes("9,41 Ton"));
+assert.ok(exportedText.includes("4,705 Ton"));
+assert.ok(exportedText.includes("1.064"));
+assert.ok(!exportedText.some(text=>/\d[\d.,]*\s*kg\b|PESO KG|KG\/CARRO|PESO INFORM/i.test(text)));
+assert.equal(context.__test.getLoads()[0].weight,9410);
+assert.ok(Math.abs(context.__test.getLoads()[0].cost-12342.4)<1e-8);
+
 console.log(JSON.stringify({
+  weightDisplayOnlyTon:true,
+  exportedImageWeightsOnlyTon:true,
+  registeredAverageRoutes:38,
+  averageKmAutofill:true,
+  explicitAndSavedKmPreserved:true,
+  decimalKmVisibleInSummary:true,
   groupedKm: importedKm.km,
   groupedKmFleet: importedKm.fleetKm,
   groupedKmCost: importedKm.cost,
