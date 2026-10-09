@@ -22,7 +22,7 @@
     <section class="panel bulk-panel" aria-labelledby="bulk-title">
       <div class="bulk-head">
         <div><p class="eyebrow">Lançamento rápido</p><h2 id="bulk-title">Adicionar várias rotas</h2><p class="helper">Importe um Excel/CSV, cole dados copiados de uma planilha ou preencha várias linhas de uma só vez.</p></div>
-        <div class="bulk-head-actions"><label class="bulk-unit-control" for="bulk-default-unit"><span>Unidade padrão</span><select id="bulk-default-unit"><option value="KG">kg</option><option value="TON">Ton</option></select></label><button id="download-template" class="btn btn-secondary" type="button">Baixar modelo CSV</button></div>
+        <div class="bulk-head-actions"><button id="download-template" class="btn btn-secondary" type="button">Baixar modelo CSV</button></div>
       </div>
       <div class="bulk-tabs" role="tablist" aria-label="Formas de lançamento em lote">
         <button class="bulk-tab active" type="button" role="tab" aria-selected="true" data-bulk-tab="file">Importar planilha</button>
@@ -34,24 +34,24 @@
           <span><strong>Escolha ou arraste sua planilha aqui</strong><span>Formatos aceitos: Excel .xlsx, CSV e TSV · até 5 MB</span></span>
           <input id="bulk-file" type="file" accept=".xlsx,.csv,.tsv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
         </label>
-        <p class="bulk-hint">A planilha precisa ter ROTA, PERFIL, PESO TOTAL e ENTREGAS. O KM vazio ou sem coluna será preenchido com a média cadastrada da rota; valores informados serão mantidos. Use CARROS para dividir o peso entre os veículos e UNIDADE PESO com KG ou TON. Se a linha não tiver unidade, valores como 12.198 serão reconhecidos como Ton (12.198,00 kg); valores no formato 12.198,00 permanecem em kg.</p>
+        <p class="bulk-hint">A planilha precisa ter ROTA, PERFIL, PESO TOTAL e ENTREGAS. O PESO DEVE ESTAR SEMPRE EM KG; o sistema converte automaticamente para Ton. Não é necessário informar o KM: ele será preenchido pela média cadastrada da rota. Colunas KM de planilhas antigas continuam sendo aceitas. Use CARROS para dividir o peso entre os veículos.</p>
         <div id="bulk-file-status" class="bulk-status" role="status" aria-live="polite"></div>
       </div>
       <div id="bulk-paste-panel" class="bulk-workspace is-hidden" data-bulk-panel="paste">
         <label for="bulk-paste"><strong>Cole as linhas copiadas do Excel</strong></label>
-        <textarea id="bulk-paste" class="bulk-textarea" placeholder="ROTA&#9;PERFIL&#9;CARROS&#9;PESO TOTAL&#9;UNIDADE PESO&#9;KM&#9;ENTREGAS&#10;AG1 CARUARU&#9;3/4&#9;2&#9;9,41&#9;TON&#9;121&#9;18"></textarea>
-        <p class="bulk-hint">Mantenha a primeira linha com os nomes das colunas. Deixe o KM vazio para usar a média da rota. Use KG ou TON na unidade; linhas sem unidade reconhecem automaticamente números com ponto decimal, como 12.198, como Ton.</p>
+        <textarea id="bulk-paste" class="bulk-textarea" placeholder="ROTA&#9;PERFIL&#9;CARROS&#9;PESO TOTAL (KG)&#9;ENTREGAS&#10;AG1 CARUARU&#9;3/4&#9;2&#9;9410&#9;18"></textarea>
+        <p class="bulk-hint">Mantenha a primeira linha com os nomes das colunas. O KM não precisa ser incluído: a média da rota será usada automaticamente. Informe o peso sempre em KG; o sistema converte para Ton no resumo.</p>
         <div class="bulk-action-line"><button id="analyze-paste" class="btn btn-primary" type="button">Conferir dados colados</button><button id="clear-paste" class="btn btn-ghost" type="button">Limpar</button></div>
       </div>
       <div id="bulk-grid-panel" class="bulk-workspace is-hidden" data-bulk-panel="grid">
-        <div class="bulk-grid-wrap"><table class="bulk-grid"><thead><tr><th>Rota</th><th>Perfil</th><th>Carros</th><th>Peso</th><th>Unidade</th><th>KM</th><th>Entregas</th><th>Atendimento</th><th>Modalidade</th><th>Valor carga</th><th>Frete</th><th></th></tr></thead><tbody id="bulk-grid-rows"></tbody></table></div>
-        <p class="bulk-hint">Ao selecionar uma rota cadastrada, o KM médio é preenchido automaticamente e pode ser ajustado. Informe o peso em KG ou TON. O valor será convertido para kg antes de dividir entre os carros. Para frete próprio, deixe “Valor carga” e “Frete” vazios.</p>
+        <div class="bulk-grid-wrap"><table class="bulk-grid"><thead><tr><th>Rota</th><th>Perfil</th><th>Carros</th><th>Peso (KG)</th><th>Entregas</th><th>Atendimento</th><th>Modalidade</th><th>Valor carga</th><th>Frete</th><th></th></tr></thead><tbody id="bulk-grid-rows"></tbody></table></div>
+        <p class="bulk-hint">O KM médio da rota é aplicado automaticamente. Informe o peso em KG; o sistema converte para Ton antes de dividir entre os carros. Para frete próprio, deixe “Valor carga” e “Frete” vazios.</p>
         <div class="bulk-action-line"><button id="add-bulk-row" class="btn btn-secondary" type="button">Adicionar linha</button><button id="review-bulk-grid" class="btn btn-primary" type="button">Conferir linhas preenchidas</button><button id="clear-bulk-grid" class="btn btn-ghost" type="button">Limpar tabela</button></div>
       </div>
       <div id="bulk-review" class="bulk-review is-hidden" aria-live="polite">
         <div class="bulk-review-head"><div><h3>Conferência da importação</h3><p id="bulk-review-summary"></p></div><button id="cancel-bulk-review" class="icon-btn" type="button" aria-label="Fechar conferência">Fechar</button></div>
         <ul id="bulk-errors" class="bulk-errors is-hidden"></ul>
-        <div class="bulk-preview-wrap"><table class="bulk-preview"><thead><tr><th>Linha</th><th>Rota</th><th>Perfil</th><th>Carros</th><th>Peso total (Ton)</th><th>Peso/carro (Ton)</th><th>KM</th><th>Entregas</th><th>Resultado</th></tr></thead><tbody id="bulk-preview-rows"></tbody></table></div>
+        <div class="bulk-preview-wrap"><table class="bulk-preview"><thead><tr><th>Linha</th><th>Rota</th><th>Perfil</th><th>Carros</th><th>Peso total (Ton)</th><th>Peso/carro (Ton)</th><th>KM médio</th><th>Entregas</th><th>Resultado</th></tr></thead><tbody id="bulk-preview-rows"></tbody></table></div>
         <div class="bulk-confirm"><label class="bulk-replace"><input id="replace-import" type="checkbox"> Substituir as rotas que já estão no painel</label><div class="bulk-action-line"><button id="cancel-bulk" class="btn btn-ghost" type="button">Cancelar</button><button id="confirm-bulk" class="btn btn-primary" type="button">Adicionar rotas válidas</button></div></div>
       </div>
     </section>

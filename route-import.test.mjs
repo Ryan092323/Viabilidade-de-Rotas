@@ -75,7 +75,7 @@ node("#customer-type").value = "RETAIL";
 node("#target-group").value = "AGRESTE_2";
 vm.createContext(context);
 vm.runInContext(dataScript, context);
-vm.runInContext(`${appScript}\n;globalThis.__test={calculateLoad,aggregate,parseDelimited,matrixToBulkRecords,recordToCalculated,parseDateValue,parseDistanceKm,readForm,readBulkGrid,prepareBulk,renderAll,restore,duplicateLoad,editLoad,drawExport,formatTon,ROUTE_KM_AVERAGES,getRouteAverageKm,getLoads:()=>loads,setLoads:value=>{loads=value}};`, context);
+vm.runInContext(`${appScript}\n;globalThis.__test={calculateLoad,aggregate,parseDelimited,matrixToBulkRecords,recordToCalculated,parseDateValue,parseDistanceKm,readForm,readBulkGrid,bulkGridRow,prepareBulk,renderAll,restore,duplicateLoad,editLoad,drawExport,formatTon,ROUTE_KM_AVERAGES,getRouteAverageKm,getLoads:()=>loads,setLoads:value=>{loads=value}};`, context);
 
 const own = context.__test.calculateLoad({
   id: "a",
@@ -202,30 +202,31 @@ if (importedFleet.vehicleCount !== 2 || importedFleet.weight !== 9400 || importe
 }
 if (bulkOne.vehicleCount !== 1) throw new Error("Importação sem CARROS deveria assumir um carro");
 
-const pastedWithTons = context.__test.parseDelimited("ROTA;PERFIL;CARROS;PESO TOTAL;UNIDADE PESO;KM;ENTREGAS\nAG1 CARUARU;3/4;2;9,41;TON;121;18");
-const parsedWithTons = context.__test.matrixToBulkRecords(pastedWithTons);
-const importedTons = context.__test.recordToCalculated(parsedWithTons.records[0]);
-if (importedTons.weight !== 9410 || importedTons.weightUnit !== "TON" || importedTons.weightPerVehicle !== 4705) {
-  throw new Error("Importação em toneladas incorreta");
+const pastedWithKg = context.__test.parseDelimited("ROTA;PERFIL;CARROS;PESO TOTAL (KG);KM;ENTREGAS\nAG1 CARUARU;3/4;2;9410;121;18");
+const parsedWithKg = context.__test.matrixToBulkRecords(pastedWithKg);
+const importedKg = context.__test.recordToCalculated(parsedWithKg.records[0]);
+if (importedKg.weight !== 9410 || importedKg.weightUnit !== "KG" || importedKg.weightPerVehicle !== 4705) {
+  throw new Error("Importação em KG incorreta");
 }
 
-node("#bulk-default-unit").value = "TON";
-const defaultTons = context.__test.recordToCalculated({raw:{route:"AG1 CARUARU",profile:"3/4",vehicleCount:"2",weight:"9,41",km:"121",deliveries:"18"}});
-if (defaultTons.weight !== 9410 || defaultTons.weightUnit !== "TON") throw new Error("Unidade padrão Ton não foi aplicada");
-const embeddedTons = context.__test.recordToCalculated({raw:{route:"AG1 CARUARU",profile:"3/4",vehicleCount:"2",weight:"9,41 Ton",km:"121",deliveries:"18"}});
-if (embeddedTons.weight !== 9410 || embeddedTons.weightUnit !== "TON") throw new Error("Ton escrita no peso não foi reconhecida");
-const implicitDotTons = context.__test.recordToCalculated({raw:{route:"AG1 CARUARU",profile:"3/4",vehicleCount:"1",weight:"12.198",km:"121",deliveries:"18"}});
-if (implicitDotTons.weight !== 12198 || implicitDotTons.weightUnit !== "TON") throw new Error("Valor 12.198 sem unidade deveria ser reconhecido como Ton");
-const explicitKgThousands = context.__test.recordToCalculated({raw:{route:"AG1 CARUARU",profile:"3/4",vehicleCount:"1",weight:"12.198",weightUnit:"KG",km:"121",deliveries:"18"}});
-if (explicitKgThousands.weight !== 12198 || explicitKgThousands.weightUnit !== "KG") throw new Error("Valor 12.198 explicitamente em kg deveria usar separador de milhar");
-node("#bulk-default-unit").value = "KG";
-
-const headerTons = context.__test.matrixToBulkRecords([
+// A unidade informada em arquivos antigos é ignorada: toda importação é KG.
+const pastedWithLegacyUnit = context.__test.parseDelimited("ROTA;PERFIL;CARROS;PESO TOTAL;UNIDADE PESO;KM;ENTREGAS\nAG1 CARUARU;3/4;2;9410;TON;121;18");
+const parsedWithLegacyUnit = context.__test.matrixToBulkRecords(pastedWithLegacyUnit);
+const importedLegacyUnit = context.__test.recordToCalculated(parsedWithLegacyUnit.records[0]);
+if (importedLegacyUnit.weight !== 9410 || importedLegacyUnit.weightUnit !== "KG") throw new Error("Importação não deve converter novamente um peso em KG");
+const groupedKg = context.__test.recordToCalculated({raw:{route:"AG1 CARUARU",profile:"3/4",vehicleCount:"1",weight:"12.198",weightUnit:"TON",km:"121",deliveries:"18"}});
+if (groupedKg.weight !== 12198 || groupedKg.weightUnit !== "KG") throw new Error("Valor 12.198 deveria ser reconhecido como 12.198 kg");
+const decimalKg = context.__test.recordToCalculated({raw:{route:"AG1 CARUARU",profile:"3/4",vehicleCount:"1",weight:"9,41",weightUnit:"TON",km:"121",deliveries:"18"}});
+if (decimalKg.weight !== 9.41 || decimalKg.weightUnit !== "KG") throw new Error("O peso colado deve ser interpretado sempre como KG");
+const headerKg = context.__test.matrixToBulkRecords([
   ["ROTA","PERFIL","CARROS","PESO TOTAL (TON)","KM","ENTREGAS"],
-  ["AG1 CARUARU","3/4","2","9,41","121","18"],
+  ["AG1 CARUARU","3/4","2","9410","121","18"],
 ]);
-const inferredTons = context.__test.recordToCalculated(headerTons.records[0]);
-if (inferredTons.weight !== 9410 || inferredTons.weightUnit !== "TON") throw new Error("Unidade Ton do cabeçalho não foi reconhecida");
+const ignoredHeaderUnit = context.__test.recordToCalculated(headerKg.records[0]);
+if (ignoredHeaderUnit.weight !== 9410 || ignoredHeaderUnit.weightUnit !== "KG") throw new Error("Unidade no cabeçalho não deve alterar a leitura em KG");
+if (html.includes('id="bulk-default-unit"')) throw new Error("Seletor de unidade em lote ainda está visível");
+const gridMarkup = context.__test.bulkGridRow().innerHTML;
+if (gridMarkup.includes('data-key="weightUnit"') || gridMarkup.includes("Unidade do peso")) throw new Error("Tabela em lote ainda permite escolher a unidade");
 
 const dailyFormat = context.__test.matrixToBulkRecords([
   ["07/10/2026 | QUARTA-FEIRA"],
@@ -247,7 +248,7 @@ for (const [input, expected] of kmCases) {
 for (const input of ["", "   ", "abc", "1..064", "1,064,00", Infinity]) {
   if (!Number.isNaN(context.__test.parseDistanceKm(input))) throw new Error(`KM inválido aceito: ${input}`);
 }
-const routeInput = {route:"SRT PETROLINA REDES",profile:"3/4",vehicleCount:"2",weight:"9,41",weightUnit:"TON",km:"1.064",deliveries:"1"};
+const routeInput = {route:"SRT PETROLINA REDES",profile:"3/4",vehicleCount:"2",weight:"9410",weightUnit:"TON",km:"1.064",deliveries:"1"};
 const importedKm = context.__test.recordToCalculated({raw:routeInput});
 if (importedKm.km !== 1064 || importedKm.fleetKm !== 2128 || Math.abs(importedKm.cost - 12342.4) > 0.001) {
   throw new Error("1.064 km não recalculou a quilometragem e o custo dos dois carros");
@@ -301,10 +302,10 @@ if (duplicatedKm.km !== 1064 || duplicatedKm.weight !== 9410) throw new Error("D
 assert.equal(Object.keys(context.__test.ROUTE_KM_AVERAGES).length, 38);
 for (const [route, expected] of [
   ["AG1 CARUARU",157.47], ["AG1 CARUARU REDES",110.75],
-  [" ag2  águas belas ",344.05], ["AG2 SÃO JOÃO",1185.93],
+  [" ag2  águas belas ",344.05], ["AG2 SÃO JOÃO",180],
   ["AG2 BELO JARDIM REDES",5.25], ["AG2 CORRENTES",354.53],
-  ["AG2 GARANHUNS",171.03], ["AG2 GARANHUNS REDES",535.20],
-  ["AG2 LAJEDO",708.18], ["SRT PETROLINA",1142.97], ["SRT PETROLINA REDES",1061.21],
+  ["AG2 GARANHUNS",171.03], ["AG2 GARANHUNS REDES",171.03],
+  ["AG2 LAJEDO",180], ["SRT PETROLINA",1142.97], ["SRT PETROLINA REDES",1061.21],
   ["AG1 STC CAPIBARIBE REDES",168.91], ["SRT S. TALHADA REDES",458.42]
 ]) {
   const load=context.__test.recordToCalculated({raw:{route,profile:"3/4",weight:4500,weightUnit:"KG",deliveries:3,km:""}});
@@ -313,7 +314,7 @@ for (const [route, expected] of [
 for (const route of Object.keys(context.__test.ROUTE_KM_AVERAGES)) {
   assert.ok(html.includes(`<option value="${route}">`),`Rota ausente nas opções: ${route}`);
 }
-const autoKmInput={route:"AG1 CARUARU",profile:"3/4",vehicleCount:2,weight:"9,41",weightUnit:"TON",deliveries:18};
+const autoKmInput={route:"AG1 CARUARU",profile:"3/4",vehicleCount:2,weight:"9410",weightUnit:"TON",deliveries:18};
 const autoKm=context.__test.recordToCalculated({raw:autoKmInput});
 assert.equal(autoKm.km,157.47);
 assert.equal(autoKm.fleetKm,314.94);
@@ -331,7 +332,7 @@ for (const delimiter of [";","\t",","]) {
   const csv=["ROTA","PERFIL","PESO","UNIDADE PESO","ENTREGAS"].join(delimiter)+"\n"+
     ["AG2 SÃO JOÃO","TOCO","6500","KG","12"].join(delimiter);
   const parsed=context.__test.matrixToBulkRecords(context.__test.parseDelimited(csv));
-  assert.equal(context.__test.recordToCalculated(parsed.records[0]).km,1185.93);
+  assert.equal(context.__test.recordToCalculated(parsed.records[0]).km,180);
 }
 const optionalKmMatrix=context.__test.matrixToBulkRecords([
   ["ROTA","PERFIL","PESO","ENTREGAS"], ["AG2 BELO JARDIM REDES","TRUCK",11000,3]
@@ -348,8 +349,8 @@ node("#route").dispatchEvent({type:"change"});
 assert.equal(node("#km").value,"144,40");
 node("#route").value="AG2 SÃO JOÃO";
 node("#route").dispatchEvent({type:"input"});
-assert.equal(node("#km").value,"1.185,93");
-assert.equal(context.__test.calculateLoad(context.__test.readForm()).km,1185.93);
+assert.equal(node("#km").value,"180,00");
+assert.equal(context.__test.calculateLoad(context.__test.readForm()).km,180);
 node("#route").value="ROTA SEM CADASTRO";
 node("#route").dispatchEvent({type:"change"});
 assert.equal(node("#km").value,"");
@@ -366,6 +367,9 @@ const blankKmGrid={querySelectorAll:()=>Object.entries(autoKmInput).map(([key,va
 context.document.querySelectorAll=selector=>selector==="#bulk-grid-rows tr"?[blankKmGrid]:[];
 assert.equal(context.__test.recordToCalculated(context.__test.readBulkGrid()[0]).km,157.47);
 context.document.querySelectorAll=()=>[];
+
+const bulkGridMarkup=context.__test.bulkGridRow().innerHTML;
+assert.ok(!bulkGridMarkup.includes('data-key="km"'));
 
 context.__test.prepareBulk([{rowNumber:2,raw:autoKmInput}]);
 assert.ok(node("#bulk-preview-rows").innerHTML.includes(">157,47</td>"));
@@ -432,8 +436,8 @@ console.log(JSON.stringify({
   multiVehicleCost: multiVehicle.cost,
   importedVehicleCount: importedFleet.vehicleCount,
   tonRouteWeightKg: tonRoute.weight,
-  importedTonsWeightKg: importedTons.weight,
-  defaultTonsWeightKg: defaultTons.weight,
+  importedKgWeightKg: importedKg.weight,
+  legacyUnitIgnoredWeightKg: importedLegacyUnit.weight,
   bulkPasteRows: parsedBulk.records.length,
   dailyImportRows: dailyFormat.records.length,
   dailyImportDate: dailyFormat.date,

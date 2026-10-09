@@ -1,5 +1,5 @@
-// Parâmetros e KM médios extraídos do arquivo original de 09/10/2026.
-window.APP_DATA = window.APP_DATA || {};
+// Dados operacionais do arquivo enviado em 09/10/2026.
+window.APP_DATA = {};
     window.APP_DATA.PROFILE_CONFIG={"3/4":{capacity:5000,rate:5.8,label:"3/4"},TOCO:{capacity:7000,rate:5.6,label:"Toco"},TRUCK:{capacity:12000,rate:5.3,label:"Truck"},BITRUCK:{capacity:16000,rate:5.3,label:"Bitruck"},CARRETA:{capacity:26000,rate:5.3,label:"Carreta"}};
     window.APP_DATA.TARGET_CONFIG={AGRESTE_1:{label:"Agreste 1",value:.441},AGRESTE_2:{label:"Agreste 2",value:.441},SERTAO:{label:"Sertão",value:.945},RMR:{label:"RMR",value:.5},ZONA_DA_MATA:{label:"Zona da Mata",value:.5},RN:{label:"Rio Grande do Norte",value:1.6},CE:{label:"Ceará",value:.7},PB:{label:"Paraíba",value:.56},AL:{label:"Alagoas",value:.91},MARANHAO:{label:"Maranhão",value:1.6}};
     window.APP_DATA.CUSTOMER_CONFIG={RETAIL:{label:"Varejo",minutes:30,short:"30 min"},NETWORK:{label:"Rede",minutes:180,short:"3 h"}};
@@ -21,12 +21,12 @@ window.APP_DATA = window.APP_DATA || {};
       "AG2 BUIQUE":230.39,
       "AG2 CORRENTES":354.53,
       "AG2 GARANHUNS":171.03,
-      "AG2 GARANHUNS REDES":535.20,
-      "AG2 LAJEDO":708.18,
+      "AG2 GARANHUNS REDES":171.03,
+      "AG2 LAJEDO":180,
       "AG2 PESQUEIRA":87.22,
       "AG2 PETROLANDIA":675.87,
       "AG2 SAO BENTO DO UNA":164.30,
-      "AG2 SAO JOAO":1185.93,
+      "AG2 SAO JOAO":180,
       "AG2 VENTUROSA":174.95,
       "AL ARAPIRACA":631.35,
       "AL MACEIO":457.79,
@@ -49,4 +49,3 @@ window.APP_DATA = window.APP_DATA || {};
       "SRT S. TALHADA":"SRT SERRA TALHADA",
       "SRT S. TALHADA REDES":"SRT SERRA TALHADA REDES"
     });
-
