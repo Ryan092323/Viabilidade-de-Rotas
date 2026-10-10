@@ -299,14 +299,16 @@ const duplicatedKm=context.__test.getLoads()[1];
 if (duplicatedKm.km !== 1064 || duplicatedKm.weight !== 9410) throw new Error("Dados convertidos novamente ao duplicar");
 
 // Registered averages fill only missing distances; explicit distances remain authoritative.
-assert.equal(Object.keys(context.__test.ROUTE_KM_AVERAGES).length, 38);
+assert.equal(Object.keys(context.__test.ROUTE_KM_AVERAGES).length, 42);
 for (const [route, expected] of [
   ["AG1 CARUARU",157.47], ["AG1 CARUARU REDES",110.75],
   [" ag2  águas belas ",344.05], ["AG2 SÃO JOÃO",180],
   ["AG2 BELO JARDIM REDES",5.25], ["AG2 CORRENTES",354.53],
   ["AG2 GARANHUNS",171.03], ["AG2 GARANHUNS REDES",171.03],
   ["AG2 LAJEDO",180], ["SRT PETROLINA",1142.97], ["SRT PETROLINA REDES",1061.21],
-  ["AG1 STC CAPIBARIBE REDES",168.91], ["SRT S. TALHADA REDES",458.42]
+  ["AG1 STC CAPIBARIBE REDES",168.91], ["SRT S. TALHADA REDES",458.42],
+  ["Ceará",828], ["SRT Ouricuri",884], ["SRT Araripina Redes",1002],
+  ["SRT Dormentes",1130], ["Juazeiro do Norte",828], ["CE Juazeiro do Norte",828]
 ]) {
   const load=context.__test.recordToCalculated({raw:{route,profile:"3/4",weight:4500,weightUnit:"KG",deliveries:3,km:""}});
   assert.equal(load.km,expected,route);
@@ -339,6 +341,25 @@ const optionalKmMatrix=context.__test.matrixToBulkRecords([
 ]);
 assert.equal(context.__test.recordToCalculated(optionalKmMatrix.records[0]).km,5.25);
 
+// The four new destinations import together without KM and apply distance per car.
+const estimatedRoutes=context.__test.matrixToBulkRecords(context.__test.parseDelimited(
+  "ROTA;PERFIL;CARROS;PESO TOTAL (KG);ENTREGAS\n"+
+  "Ceará;TRUCK;2;12.320,04;4\n"+
+  "SRT Ouricuri;TRUCK;2;12.320,04;4\n"+
+  "SRT Araripina Redes;TRUCK;2;12.320,04;4\n"+
+  "SRT Dormentes;TRUCK;2;12.320,04;4"
+));
+for (const [index,km] of [828,884,1002,1130].entries()) {
+  const load=context.__test.recordToCalculated(estimatedRoutes.records[index]);
+  assert.equal(load.km,km);
+  assert.equal(load.fleetKm,km*2);
+  assert.ok(Math.abs(load.cost-km*2*5.3)<1e-8);
+  assert.equal(load.weight,12320.04);
+  assert.equal(load.group,index===0?"CE":"SERTAO");
+  assert.equal(load.customerType,index===2?"NETWORK":"RETAIL");
+}
+assert.equal(context.__test.recordToCalculated({raw:{route:"Juazeiro do Norte",profile:"TRUCK",weight:12000,deliveries:4}}).group,"CE");
+
 // Actual registered form handlers fill and replace averages without overwriting a same-route edit.
 node("#route").value="AG1 CARUARU";
 node("#route").dispatchEvent({type:"input"});
@@ -351,6 +372,15 @@ node("#route").value="AG2 SÃO JOÃO";
 node("#route").dispatchEvent({type:"input"});
 assert.equal(node("#km").value,"180,00");
 assert.equal(context.__test.calculateLoad(context.__test.readForm()).km,180);
+node("#route").value="Ceará";
+node("#route").dispatchEvent({type:"input"});
+assert.equal(node("#km").value,"828,00");
+assert.ok(node("#km-help").textContent.includes("Estimativa cadastrada"));
+assert.ok(node("#km-help").textContent.includes("Juazeiro do Norte"));
+assert.ok(node("#km-help").textContent.includes("ida e volta"));
+node("#km").value="900";
+node("#route").dispatchEvent({type:"change"});
+assert.equal(node("#km").value,"900");
 node("#route").value="ROTA SEM CADASTRO";
 node("#route").dispatchEvent({type:"change"});
 assert.equal(node("#km").value,"");
@@ -413,7 +443,7 @@ assert.ok(Math.abs(context.__test.getLoads()[0].cost-12342.4)<1e-8);
 console.log(JSON.stringify({
   weightDisplayOnlyTon:true,
   exportedImageWeightsOnlyTon:true,
-  registeredAverageRoutes:38,
+  registeredAverageRoutes:42,
   averageKmAutofill:true,
   explicitAndSavedKmPreserved:true,
   decimalKmVisibleInSummary:true,

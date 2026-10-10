@@ -1,9 +1,10 @@
-// Dados operacionais do arquivo enviado em 09/10/2026.
+/* Dados operacionais preservados da versão de 10/10/2026. */
 window.APP_DATA = {};
     window.APP_DATA.PROFILE_CONFIG={"3/4":{capacity:5000,rate:5.8,label:"3/4"},TOCO:{capacity:7000,rate:5.6,label:"Toco"},TRUCK:{capacity:12000,rate:5.3,label:"Truck"},BITRUCK:{capacity:16000,rate:5.3,label:"Bitruck"},CARRETA:{capacity:26000,rate:5.3,label:"Carreta"}};
     window.APP_DATA.TARGET_CONFIG={AGRESTE_1:{label:"Agreste 1",value:.441},AGRESTE_2:{label:"Agreste 2",value:.441},SERTAO:{label:"Sertão",value:.945},RMR:{label:"RMR",value:.5},ZONA_DA_MATA:{label:"Zona da Mata",value:.5},RN:{label:"Rio Grande do Norte",value:1.6},CE:{label:"Ceará",value:.7},PB:{label:"Paraíba",value:.56},AL:{label:"Alagoas",value:.91},MARANHAO:{label:"Maranhão",value:1.6}};
     window.APP_DATA.CUSTOMER_CONFIG={RETAIL:{label:"Varejo",minutes:30,short:"30 min"},NETWORK:{label:"Rede",minutes:180,short:"3 h"}};
-    // Médias de KM por carro fornecidas para o planejamento em 09/10/2026.
+    // Médias fornecidas em 09/10/2026, com quatro estimativas de ida e volta
+    // desde Belo Jardim adicionadas em 10/10/2026. Fontes: docs/km-estimados.md.
     window.APP_DATA.ROUTE_KM_AVERAGES=Object.freeze({
       "AG1 AGRESTINA":225.77,
       "AG1 CARUARU":157.47,
@@ -33,19 +34,32 @@ window.APP_DATA = {};
       "AL MACEIO REDES":435.89,
       "PB CAMPINA GRANDE":514.28,
       "SRT ARARIPINA":973.44,
+      "SRT ARARIPINA REDES":1002,
       "SRT CABROBO":872.58,
+      "SRT DORMENTES":1130,
       "SRT FLORESTA":701.80,
       "SRT INGAZEIRA":607.12,
       "SRT MIRANDIBA":892.43,
+      "SRT OURICURI":884,
       "SRT PETROLINA":1142.97,
       "SRT PETROLINA REDES":1061.21,
       "SRT SALGUEIRO":722.74,
       "SRT SERRA TALHADA":473.26,
       "SRT SERRA TALHADA REDES":458.42,
-      "SRT SERTANIA":455.16
+      "SRT SERTANIA":455.16,
+      "CEARA":828
+    });
+    window.APP_DATA.ROUTE_KM_ESTIMATES=Object.freeze({
+      "CEARA":"Juazeiro do Norte (CE)",
+      "SRT OURICURI":"Ouricuri (PE)",
+      "SRT ARARIPINA REDES":"Araripina (PE)",
+      "SRT DORMENTES":"Dormentes (PE)"
     });
     window.APP_DATA.ROUTE_KM_ALIASES=Object.freeze({
       "AG1 STC CAPIBARIBE REDES":"AG1 STC CAPIBA REDES",
       "SRT S. TALHADA":"SRT SERRA TALHADA",
-      "SRT S. TALHADA REDES":"SRT SERRA TALHADA REDES"
+      "SRT S. TALHADA REDES":"SRT SERRA TALHADA REDES",
+      "JUAZEIRO DO NORTE":"CEARA",
+      "CE JUAZEIRO DO NORTE":"CEARA",
+      "CEARA JUAZEIRO DO NORTE":"CEARA"
     });
