@@ -1,12 +1,12 @@
 # Painel de Viabilidade de Rotas
 
-Versão de 10/10/2026, atualizada com o KM automático de 42 rotas (38 médias cadastradas e 4 estimativas rodoviárias), formulário acima das rotas planejadas e exibição dos pesos apenas em toneladas (Ton). Site estático em HTML, CSS e JavaScript, pronto para GitHub e Cloudflare Pages. A calculadora funciona no navegador, sem conta, assinatura ou API do ChatGPT. Os arquivos HTML, CSS, dados e lógica foram separados para facilitar a manutenção.
+Versão de 13/10/2026, atualizada com o KM automático de 42 rotas (38 médias cadastradas e 4 estimativas rodoviárias), formulário acima das rotas planejadas e exibição dos pesos apenas em toneladas (Ton). Site estático em HTML, CSS e JavaScript, pronto para GitHub e Cloudflare Pages. A calculadora funciona no navegador, sem conta, assinatura ou API do ChatGPT.
 
 ## Publicar com GitHub e Cloudflare Pages
 
 1. Extraia este ZIP no computador.
 2. Crie um repositório no GitHub, por exemplo `painel-viabilidade-rotas`.
-3. Use **Add file → Upload files** e envie os arquivos e as pastas `tests` e `docs` extraídos. O arquivo `index.html` precisa ficar na raiz do repositório, junto de `styles.css`, `data.js`, `app.js`, `jszip.min.js` e `natto-logo.png`. Envie os arquivos extraídos, não apenas o ZIP. Confirme o envio para a branch `main`.
+3. Use **Add file → Upload files** e envie os arquivos e as pastas `tests` e `docs` extraídos. O arquivo `index.html` precisa ficar na raiz do repositório, junto de `jszip.min.js` e `natto-logo.png`. Envie os arquivos extraídos, não apenas o ZIP. Confirme o envio para a branch `main`.
 4. No Cloudflare, abra **Workers & Pages → Create application → Pages** e escolha a integração com Git / importação de um repositório existente.
 5. Conecte sua conta GitHub e selecione o repositório criado.
 6. Configure os campos conforme a tabela e selecione **Save and Deploy**.
@@ -39,7 +39,8 @@ Para atualizar pelo GitHub automaticamente, use desde o início o procedimento a
 - Formulário Adicionar rota acima de Rotas planejadas, ocupando toda a largura da página.
 - Leitura de KM no padrão brasileiro: `1.064` significa 1064 km; `2.500` significa 2500 km.
 - Custo, utilização, viabilidade média e soma, tempo estimado e resumo consolidado.
-- Exportação do resumo em PNG e impressão / PDF.
+- Exportação do resumo em PNG e impressão / PDF, sem a seção Resumo por rota.
+- Resumo por rota removido da tela; os indicadores gerais, detalhamento, utilização por perfil e viabilidade continuam disponíveis.
 
 ## Novas rotas cadastradas
 
@@ -62,11 +63,10 @@ Ao abrir o novo endereço do Cloudflare, importe novamente as planilhas de orige
 
 | Arquivo | Finalidade |
 | --- | --- |
-| `index.html` | Interface e listas suspensas de rotas |
-| `styles.css` | Estilos e layout responsivo |
-| `data.js` | Parâmetros de veículos, metas, atendimento e KM de 42 rotas |
-| `app.js` | Cálculos, importação, planejamento, armazenamento e exportação |
-| `_headers` | Cabeçalhos básicos de segurança no Cloudflare Pages |
+| `index.html` | Interface e listas suspensas |
+| `styles.css` | Aparência e estilos de impressão |
+| `data.js` | Perfis, capacidades, metas, tempos de espera e KM por rota |
+| `app.js` | Cálculos, importação, resumo, exportação e armazenamento |
 | `jszip.min.js` | Biblioteca local utilizada para ler arquivos Excel |
 | `natto-logo.png` | Logotipo utilizado no painel e no resumo |
 | `tests/route-import.test.mjs` | Verificações dos cálculos e importações |
@@ -82,15 +82,17 @@ Não há etapa de compilação, instalação de pacotes ou configuração de ban
 - [Cloudflare Pages — upload direto](https://developers.cloudflare.com/pages/get-started/direct-upload/)
 - [GitHub — enviar arquivos para um repositório](https://docs.github.com/en/repositories/working-with-files/managing-files/adding-a-file-to-a-repository)
 
-## Organização e manutenção
 
-O painel original foi preservado e dividido em arquivos independentes:
+## Organização da versão recriada
 
-- **`data.js`**: ajuste perfis de veículos, custos por KM, metas regionais, tempos de atendimento e as 42 rotas com KM automático.
-- **`app.js`**: mantém o comportamento original de cálculo, importação de planilhas, planejamento e exportação.
-- **`styles.css`**: reúne os estilos originais.
-- **`index.html`**: reúne o formulário, listas suspensas e painéis.
+O código original foi preservado, mas dividido em `index.html`, `styles.css`, `data.js` e `app.js`.
+Para atualizar capacidades, custos, metas, tempos de espera e quilometragens, edite `data.js`.
+O JavaScript não precisa ser compilado: `index.html` carrega `jszip.min.js`, `data.js` e `app.js` nessa ordem.
 
-Para conferir os testes automatizados, instale Node.js e execute `node tests/route-import.test.mjs`.
+Os testes automatizados podem ser executados com:
 
-**Importante:** o ZIP não contém os planejamentos já salvos no navegador; esses dados são locais ao endereço do site.
+```bash
+node tests/route-import.test.mjs
+```
+
+Esta aplicação não exige banco de dados nem credenciais. Os planejamentos anteriores salvos no navegador não acompanham os arquivos do ZIP.

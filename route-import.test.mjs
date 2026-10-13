@@ -61,7 +61,7 @@ const context = {
   localStorage: { getItem() { return null; }, setItem() {} },
   document: {
     modelContext: undefined,
-    querySelector: node,
+    querySelector: selector=>selector==="#route-rows"?null:node(selector),
     querySelectorAll() { return []; },
     createElement() { return node("created"); },
   },
@@ -421,7 +421,7 @@ assert.equal(context.__test.formatTon(12320.04),"12,32004 Ton");
 assert.equal(context.__test.formatTon(0.01),"0,00001 Ton");
 assert.equal(node("#profile-capacity").textContent,"5 Ton");
 context.__test.setLoads([importedKm]);context.__test.renderAll();
-for (const selector of ["#load-rows","#detail-rows","#stat-grid","#profile-summary","#route-rows","#summary-foot"]) {
+for (const selector of ["#load-rows","#detail-rows","#stat-grid","#profile-summary","#summary-foot"]) {
   assert.ok(node(selector).innerHTML.includes("Ton"),selector);
   assert.ok(!/\d[\d.,]*\s*kg\b/i.test(node(selector).innerHTML),selector);
 }
