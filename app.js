@@ -219,7 +219,13 @@ const STORAGE_KEY="natto-multirotas-v1";
       try{
         const doc=frame.contentDocument;
         if(!doc)throw new Error("Não foi possível preparar a imagem do resumo.");
-        const styles=[...document.querySelectorAll("style")].map(style=>style.textContent).join("\n");
+        // Inclui CSS de arquivos externos (styles.css), não apenas tags <style>.
+        // O exportador precisa do CSS para montar corretamente o resumo no iframe.
+        const styles=[...document.styleSheets].map(sheet=>{
+          try{return [...sheet.cssRules].map(rule=>rule.cssText).join("\n")}
+          catch{return ""} // Ignora folhas de terceiros sem permissão de leitura.
+        }).join("\n");
+        if(!styles.trim())throw new Error("Os estilos do painel não foram carregados. Atualize a página e tente novamente.");
         doc.open();doc.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><style>${styles}</style><style>
           html{overflow:hidden}body{padding:24px;margin:0;min-height:0;background:#f1f6f3}
           .summary-shell{margin:0}.summary-actions{display:none!important}

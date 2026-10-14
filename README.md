@@ -66,10 +66,10 @@ Ao abrir o novo endereço do Cloudflare, importe novamente as planilhas de orige
 
 | Arquivo | Finalidade |
 | --- | --- |
-| `index.html` | Interface e listas suspensas |
-| `styles.css` | Estilos e layout responsivo, também usados na exportação PNG |
-| `data.js` | Perfis, custos, metas, tempos de espera e KM automático |
-| `app.js` | Cálculos, importação, resumo, PNG, impressão e armazenamento |
+| `index.html` | Interface do painel |
+| `styles.css` | Estilos da página e do resumo exportado |
+| `data.js` | Configuração dos veículos, metas e rotas |
+| `app.js` | Cálculos, importação, resumo e exportação |
 | `jszip.min.js` | Biblioteca local utilizada para ler arquivos Excel |
 | `natto-logo.png` | Logotipo utilizado no painel |
 | `tests/route-import.test.mjs` | Verificações dos cálculos, importações e fluxo de exportação |
@@ -85,17 +85,9 @@ Não há etapa de compilação, instalação de pacotes ou configuração de ban
 - [Cloudflare Pages — upload direto](https://developers.cloudflare.com/pages/get-started/direct-upload/)
 - [GitHub — enviar arquivos para um repositório](https://docs.github.com/en/repositories/working-with-files/managing-files/adding-a-file-to-a-repository)
 
+## Correção do PNG — 14/10/2026
 
-## Organização do código da versão recriada
+Esta edição corrige a exportação PNG após a separação do CSS em `styles.css`.
+A função de exportação agora lê as regras das folhas de estilo carregadas pelo navegador, inclusive CSS externo, antes de criar a imagem. Isso evita a exportação com aparência de HTML sem formatação (colunas e textos sobrepostos).
 
-O HTML, CSS, dados operacionais e lógica foram separados em `index.html`, `styles.css`, `data.js` e `app.js`, respectivamente. A lógica de exportação PNG de 14/10/2026 foi mantida em `app.js`, incluindo a captura dos estilos da página, painéis lado a lado e resolução ampliada.
-
-Para atualizar capacidades, metas, esperas e quilometragens, edite `data.js`. O sistema continua estático, sem banco de dados nem compilação.
-
-### Executar testes
-
-```bash
-node tests/route-import.test.mjs
-```
-
-O teste cobre importação, KM, cálculo, divisão de veículos e geração de PNG.
+Para aplicar em um site publicado, substitua os arquivos do repositório por estes, faça o commit e aguarde o novo deploy. Se o navegador continuar mostrando a versão anterior, atualize forçadamente a página (Ctrl+Shift+R).

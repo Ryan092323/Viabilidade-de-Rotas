@@ -456,7 +456,9 @@ function snapshotNode(tag,markup=""){
 const pageStyle=fs.readFileSync(new URL("../styles.css", import.meta.url), "utf8");
 context.document.fonts={ready:Promise.resolve()};
 context.document.body={appendChild(frame){capture.frames.push(frame);}};
-context.document.querySelectorAll=selector=>selector==="style"?[{textContent:pageStyle}]:[];
+// Simula a situação real: o CSS está em styles.css, sem <style> no HTML.
+context.document.querySelectorAll=()=>[];
+context.document.styleSheets=[{cssRules:[{cssText:pageStyle}]}];
 node("#summary").getBoundingClientRect=()=>({width:1680});
 node("#summary").querySelector=selector=>selector===".detail-table"?{scrollWidth:1000}:null;
 const originalCreateElement=context.document.createElement;
