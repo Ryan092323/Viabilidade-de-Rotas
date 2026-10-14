@@ -36,4 +36,20 @@
     @media(max-width:1040px){.form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
     @media(max-width:720px){.topbar{align-items:flex-start;padding:13px 16px}.brand img{width:52px;height:52px}.brand p{display:none}.date-box{padding:7px 9px}.date-box label{display:none}.date-box input{width:132px}.bulk-head{align-items:flex-start;flex-direction:column}.bulk-head .btn{width:100%}.bulk-tabs{padding-inline:16px}.bulk-workspace{padding-inline:16px}.bulk-review{margin-inline:16px}.bulk-confirm{align-items:stretch;flex-direction:column}.bulk-confirm .bulk-action-line{margin:0}.form-grid{grid-template-columns:1fr}.stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.side-stack{grid-template-columns:1fr}.summary-toolbar{align-items:flex-start;flex-direction:column}.summary-actions{width:100%}.summary-actions .btn{flex:1}.summary-foot{flex-direction:column}}
     @media(max-width:430px){.stat-grid{grid-template-columns:1fr}.actions{grid-template-columns:1fr}.queue-footer{flex-direction:column}.summary-actions{flex-direction:column}}
-    @media print{body{background:#fff}.topbar,.bulk-panel,.entry-shell,.summary-toolbar,.toast{display:none!important}main{max-width:none;padding:0}.summary-shell{margin:0}.panel,.detail-card,.side-card,.stat{box-shadow:none}.summary-layout{grid-template-columns:1fr}.side-stack{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @page{size:A4 landscape;margin:8mm}
+    @media print{
+      body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .topbar,.bulk-panel,.entry-shell,.summary-toolbar,.toast{display:none!important}
+      main{max-width:none;padding:0}.summary-shell{margin:0}
+      .panel,.detail-card,.side-card,.stat{box-shadow:none}
+      .summary-content,.summary-layout,.side-stack{display:block}
+      .stat-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:12px}
+      .detail-card{overflow:visible;margin-bottom:12px}.detail-table-wrap{overflow:visible}
+      .detail-table{width:100%;table-layout:fixed}
+      .detail-table th,.detail-table td{padding:5px 3px;font-size:8pt;white-space:normal;overflow-wrap:anywhere}
+      .detail-table th:nth-child(2){width:20%}.detail-table th:first-child{width:2.5%}
+      .detail-table thead{display:table-header-group}.detail-table tr{break-inside:avoid;page-break-inside:avoid}
+      .side-card{overflow:visible;margin-bottom:12px;break-inside:avoid;page-break-inside:avoid}
+      .profile-row,.stat,.summary-foot{break-inside:avoid;page-break-inside:avoid}
+      .summary-foot{margin-top:12px}
+    }

@@ -1,6 +1,6 @@
 # Painel de Viabilidade de Rotas
 
-Versão de 13/10/2026, atualizada com o KM automático de 42 rotas (38 médias cadastradas e 4 estimativas rodoviárias), formulário acima das rotas planejadas e exibição dos pesos apenas em toneladas (Ton). Site estático em HTML, CSS e JavaScript, pronto para GitHub e Cloudflare Pages. A calculadora funciona no navegador, sem conta, assinatura ou API do ChatGPT.
+Versão de 14/10/2026, atualizada com o KM automático de 42 rotas (38 médias cadastradas e 4 estimativas rodoviárias), formulário acima das rotas planejadas e exibição dos pesos apenas em toneladas (Ton). Site estático em HTML, CSS e JavaScript, pronto para GitHub e Cloudflare Pages. A calculadora funciona no navegador, sem conta, assinatura ou API do ChatGPT.
 
 ## Publicar com GitHub e Cloudflare Pages
 
@@ -39,7 +39,10 @@ Para atualizar pelo GitHub automaticamente, use desde o início o procedimento a
 - Formulário Adicionar rota acima de Rotas planejadas, ocupando toda a largura da página.
 - Leitura de KM no padrão brasileiro: `1.064` significa 1064 km; `2.500` significa 2500 km.
 - Custo, utilização, viabilidade média e soma, tempo estimado e resumo consolidado.
-- Exportação do resumo em PNG e impressão / PDF, sem a seção Resumo por rota.
+- Exportação em PNG usando o conteúdo e os estilos do resumo, com detalhamento das rotas à esquerda e painéis de resumo à direita, em resolução duplicada para melhorar a leitura.
+- O PNG inclui os indicadores gerais, todas as colunas do detalhamento, utilização por perfil, viabilidade do frete próprio, transportadora contratada quando aplicável e alertas de capacidade.
+- Impressão / PDF inclui os painéis de resumo e usa página A4 em paisagem.
+- A seção Resumo por rota permanece removida.
 - Resumo por rota removido da tela; os indicadores gerais, detalhamento, utilização por perfil e viabilidade continuam disponíveis.
 
 ## Novas rotas cadastradas
@@ -64,12 +67,12 @@ Ao abrir o novo endereço do Cloudflare, importe novamente as planilhas de orige
 | Arquivo | Finalidade |
 | --- | --- |
 | `index.html` | Interface e listas suspensas |
-| `styles.css` | Aparência e estilos de impressão |
-| `data.js` | Perfis, capacidades, metas, tempos de espera e KM por rota |
-| `app.js` | Cálculos, importação, resumo, exportação e armazenamento |
+| `styles.css` | Estilos e layout responsivo, também usados na exportação PNG |
+| `data.js` | Perfis, custos, metas, tempos de espera e KM automático |
+| `app.js` | Cálculos, importação, resumo, PNG, impressão e armazenamento |
 | `jszip.min.js` | Biblioteca local utilizada para ler arquivos Excel |
-| `natto-logo.png` | Logotipo utilizado no painel e no resumo |
-| `tests/route-import.test.mjs` | Verificações dos cálculos e importações |
+| `natto-logo.png` | Logotipo utilizado no painel |
+| `tests/route-import.test.mjs` | Verificações dos cálculos, importações e fluxo de exportação |
 | `docs/km-estimados.md` | Referências das quatro novas rotas |
 | `JSZIP-LICENSE.txt`, `PAKO-LICENSE.txt` | Licenças das bibliotecas incluídas |
 
@@ -83,16 +86,16 @@ Não há etapa de compilação, instalação de pacotes ou configuração de ban
 - [GitHub — enviar arquivos para um repositório](https://docs.github.com/en/repositories/working-with-files/managing-files/adding-a-file-to-a-repository)
 
 
-## Organização da versão recriada
+## Organização do código da versão recriada
 
-O código original foi preservado, mas dividido em `index.html`, `styles.css`, `data.js` e `app.js`.
-Para atualizar capacidades, custos, metas, tempos de espera e quilometragens, edite `data.js`.
-O JavaScript não precisa ser compilado: `index.html` carrega `jszip.min.js`, `data.js` e `app.js` nessa ordem.
+O HTML, CSS, dados operacionais e lógica foram separados em `index.html`, `styles.css`, `data.js` e `app.js`, respectivamente. A lógica de exportação PNG de 14/10/2026 foi mantida em `app.js`, incluindo a captura dos estilos da página, painéis lado a lado e resolução ampliada.
 
-Os testes automatizados podem ser executados com:
+Para atualizar capacidades, metas, esperas e quilometragens, edite `data.js`. O sistema continua estático, sem banco de dados nem compilação.
+
+### Executar testes
 
 ```bash
 node tests/route-import.test.mjs
 ```
 
-Esta aplicação não exige banco de dados nem credenciais. Os planejamentos anteriores salvos no navegador não acompanham os arquivos do ZIP.
+O teste cobre importação, KM, cálculo, divisão de veículos e geração de PNG.

@@ -8,9 +8,11 @@ const dataScript = fs.readFileSync(new URL("../data.js", import.meta.url), "utf8
 const appScript = fs.readFileSync(new URL("../app.js", import.meta.url), "utf8");
 
 class FakeClassList {
-  add() {}
-  remove() {}
-  toggle() {}
+  values = new Set();
+  add(value) { this.values.add(value); }
+  remove(value) { this.values.delete(value); }
+  contains(value) { return this.values.has(value); }
+  toggle(value, force = !this.contains(value)) { if (force) this.add(value); else this.remove(value); return force; }
 }
 
 const nodes = new Map();
@@ -429,20 +431,125 @@ assert.ok(!node("#detail-rows").innerHTML.includes("Informado:"));
 context.__test.prepareBulk([{rowNumber:2,raw:routeInput}]);
 assert.ok(node("#bulk-preview-rows").innerHTML.includes("9,41 Ton"));
 assert.ok(!/\d[\d.,]*\s*kg\b/i.test(node("#bulk-preview-rows").innerHTML));
-const exportedText=[];
-const canvasContext={beginPath(){},roundRect(){},fill(){},stroke(){},fillRect(){},drawImage(){},fillText(value){exportedText.push(String(value));}};
-node("#export-canvas").getContext=()=>canvasContext;
-context.__test.drawExport();
-assert.ok(exportedText.includes("9,41 Ton"));
-assert.ok(exportedText.includes("4,705 Ton"));
-assert.ok(exportedText.includes("1.064"));
-assert.ok(!exportedText.some(text=>/\d[\d.,]*\s*kg\b|PESO KG|KG\/CARRO|PESO INFORM/i.test(text)));
+// DOM stand-ins check content/style transfer and download lifecycle, not browser pixels.
+const capture={height:900,imageError:false,frames:[],links:[],stylesCopied:0};
+const summaryTemplate=html.match(/<section id="summary"[\s\S]*?<\/section>/)[0];
+function summaryMarkup(){
+  let markup=summaryTemplate;
+  for(const id of ["stat-grid","detail-rows","profile-summary","own-viability","contract-summary","overload-summary","summary-foot"]){
+    markup=markup.replace(new RegExp(`(<(?:div|tbody) id="${id}"[^>]*>)(<\\/(?:div|tbody)>)`),(_,start,end)=>start+node(`#${id}`).innerHTML+end);
+  }
+  markup=markup.replace(/(<h3 id="overload-title">)[\s\S]*?(<\/h3>)/,(_,start,end)=>start+node("#overload-title").textContent+end);
+  for(const id of ["summary-empty","summary-content","own-viability-card","contract-summary-card"]){
+    markup=markup.replace(new RegExp(`(id="${id}"[^>]*class=")([^"]*)`),(_,start,classes)=>start+classes.replace(/\bis-hidden\b/g,"").trim()+(node(`#${id}`).classList.contains("is-hidden")?" is-hidden":""));
+  }
+  return markup;
+}
+function snapshotNode(tag,markup=""){
+  return {tag,markup,nodeType:1,childNodes:[],style:{properties:{},setProperty(key,value){this.properties[key]=value;}},
+    appendChild(child){this.childNodes.push(child);return child;},
+    getBoundingClientRect(){return {height:capture.height};},
+    querySelector(selector){return selector===".summary-actions"?{remove:()=>{this.markup=this.markup.replace(/<div class="summary-actions">[\s\S]*?<\/div>/,"");}}:null;},
+    cloneNode(){const copy=snapshotNode(this.tag,this.markup);copy.childNodes=this.childNodes.map(child=>child.cloneNode(true));return copy;}
+  };
+}
+const pageStyle=fs.readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+context.document.fonts={ready:Promise.resolve()};
+context.document.body={appendChild(frame){capture.frames.push(frame);}};
+context.document.querySelectorAll=selector=>selector==="style"?[{textContent:pageStyle}]:[];
+node("#summary").getBoundingClientRect=()=>({width:1680});
+node("#summary").querySelector=selector=>selector===".detail-table"?{scrollWidth:1000}:null;
+const originalCreateElement=context.document.createElement;
+context.document.createElement=tag=>{
+  if(tag==="a"){const link={click(){this.clicked=true;}};capture.links.push(link);return link;}
+  if(tag!=="iframe")return originalCreateElement(tag);
+  const frame={style:{},setAttribute(key,value){this[key]=value;},remove(){this.removed=true;}};
+  frame.contentDocument={body:snapshotNode("body"),fonts:{ready:Promise.resolve()},open(){},close(){},write(value){frame.documentHtml=value;},
+    importNode(source,deep){assert.equal(source,node("#summary"));assert.equal(deep,true);return snapshotNode("section",summaryMarkup());}};
+  frame.contentWindow={getComputedStyle(){capture.stylesCopied++;const props=["background-color","font-family"];return {0:props[0],1:props[1],length:2,getPropertyValue(key){return key===props[0]?"rgb(241, 246, 243)":"Segoe UI, sans-serif";},getPropertyPriority(){return "";}};}};
+  return frame;
+};
+context.XMLSerializer=class{serializeToString(root){
+  function serialize(el){const style=Object.entries(el.style.properties).map(([key,value])=>`${key}:${value}`).join(";");return el.markup?el.markup.replace("<section ",`<section style="${style}" `):`<${el.tag} xmlns="http://www.w3.org/1999/xhtml" style="${style}">${el.childNodes.map(serialize).join("")}</${el.tag}>`;}
+  return serialize(root);
+}};
+context.Image=class{set src(value){capture.svg=decodeURIComponent(value.split(",").slice(1).join(","));queueMicrotask(()=>capture.imageError?this.onerror():this.onload());}};
+node("#export-canvas").getContext=()=>({fillRect(){},drawImage(...args){capture.draw=args;}});
+node("#export-canvas").toDataURL=()=>"data:image/png;base64,test";
+async function exportPanelScenario(loads,height=900){
+  context.__test.setLoads(loads);capture.height=height;
+  const canvas=await context.__test.drawExport(),frame=capture.frames.at(-1);
+  assert.equal(canvas.width,3456);assert.equal(canvas.height,height*2);
+  assert.deepEqual(capture.draw.slice(1),[0,0,canvas.width,canvas.height]);
+  assert.ok(frame.removed);assert.equal(frame["aria-hidden"],"true");
+  assert.ok(frame.documentHtml.includes(pageStyle));
+  assert.ok(frame.documentHtml.includes("grid-template-columns:minmax(0,1.55fr) minmax(360px,.75fr)"));
+  assert.ok(frame.documentHtml.includes("grid-template-columns:repeat(6,minmax(0,1fr))"));
+  assert.ok(capture.svg.includes("Segoe UI, sans-serif"));
+  assert.ok(!capture.svg.includes("summary-actions"));
+  assert.ok(!capture.svg.includes("Resumo por rota"));
+  assert.ok(capture.svg.indexOf('class="detail-card"')<capture.svg.indexOf('class="side-stack"'));
+  for(const id of ["stat-grid","detail-rows","profile-summary","own-viability","contract-summary","overload-summary","summary-foot"]){
+    assert.ok(capture.svg.includes(node(`#${id}`).innerHTML),`Conteúdo do site preservado: ${id}`);
+  }
+  return capture.svg;
+}
+let exportedSvg=await exportPanelScenario([importedKm]);
+assert.ok(exportedSvg.includes("9,41 Ton"));
+assert.ok(exportedSvg.includes("4,705 Ton"));
+assert.ok(exportedSvg.includes("1.064"));
+assert.ok(!/\d[\d.,]*\s*kg\b|PESO KG|KG\/CARRO|PESO INFORM/i.test(exportedSvg));
+for(const label of ["Perfil","R$/KM","Peso total (Ton)","Peso/carro (Ton)","Viab./saldo","Entr."]){assert.ok(exportedSvg.includes(label));}
 assert.equal(context.__test.getLoads()[0].weight,9410);
 assert.ok(Math.abs(context.__test.getLoads()[0].cost-12342.4)<1e-8);
+
+// Conditional cards retain the visibility used by the actual summary.
+assert.ok(!node("#own-viability-card").classList.contains("is-hidden"));
+assert.ok(node("#contract-summary-card").classList.contains("is-hidden"));
+exportedSvg=await exportPanelScenario([contracted]);
+assert.ok(node("#own-viability-card").classList.contains("is-hidden"));
+assert.ok(!node("#contract-summary-card").classList.contains("is-hidden"));
+for(const label of ["Valor das cargas","Fretes contratados","Saldo consolidado","Participação do frete","Sem veículos acima do limite"]){assert.ok(exportedSvg.includes(label));}
+const overloads=Array.from({length:12},(_,i)=>context.__test.calculateLoad({...own,
+  id:`export-over-${i}`,route:`AG1 ROTA ${i+1} ${"DESCRIÇÃO COMPLETA ".repeat(20)}`,
+  vehicleCount:2,weight:12000,weightInput:12000,km:80
+}));
+exportedSvg=await exportPanelScenario([...overloads,contracted],2400);
+assert.ok(exportedSvg.includes("24 veículos acima do limite"));
+assert.ok(exportedSvg.includes("Excesso somado: 24 Ton"));
+for(const load of overloads){assert.ok(exportedSvg.includes(load.route));}
+assert.ok(capture.stylesCopied>=6);
+
+// Failed rendering leaves no hidden iframe and lets the user retry the download.
+capture.imageError=true;
+await assert.rejects(()=>context.__test.drawExport(),/Não foi possível gerar o PNG/);
+assert.ok(capture.frames.at(-1).removed);
+await node("#download-png").listeners.click[0]();
+assert.equal(node("#download-png").disabled,false);assert.equal(capture.links.length,0);
+capture.imageError=false;
+context.__test.setLoads([importedKm]);
+node("#summary-date").value="2026-10-14";
+const downloading=node("#download-png").listeners.click[0]();
+assert.equal(node("#download-png").disabled,true);
+await downloading;
+assert.equal(node("#download-png").disabled,false);
+assert.ok(capture.links.at(-1).clicked);
+assert.equal(capture.links.at(-1).href,"data:image/png;base64,test");
+assert.equal(capture.links.at(-1).download,"planejamento-rotas-2026-10-14.png");
+context.__test.setLoads([]);
+const frameCount=capture.frames.length;
+await assert.rejects(()=>context.__test.drawExport(),/Adicione pelo menos uma rota/);
+assert.equal(capture.frames.length,frameCount);
+context.__test.setLoads([importedKm]);
 
 console.log(JSON.stringify({
   weightDisplayOnlyTon:true,
   exportedImageWeightsOnlyTon:true,
+  exportedConditionalPanels:true,
+  exportedMeasuredFullHeight:true,
+  exportedSiteDomAndStyles:true,
+  exportedSideBySideLayout:true,
+  exportFailureCleanupAndRetry:true,
   registeredAverageRoutes:42,
   averageKmAutofill:true,
   explicitAndSavedKmPreserved:true,
