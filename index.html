@@ -7,7 +7,7 @@
   <meta name="description" content="Planeje várias rotas, calcule ocupação e viabilidade e gere um resumo consolidado da roteirização.">
   <title>Painel de Viabilidade de Rotas</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23075b34'/%3E%3Cpath d='M12 43h40M17 38l9-18h15l7 18' fill='none' stroke='%23f6c62f' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='24' cy='44' r='5' fill='white'/%3E%3Ccircle cx='44' cy='44' r='5' fill='white'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
   <header class="topbar">
@@ -48,7 +48,7 @@
         <p class="bulk-hint">O KM médio da rota é aplicado automaticamente. Informe o peso em KG; o sistema converte para Ton antes de dividir entre os carros. Para frete próprio, deixe “Valor carga” e “Frete” vazios.</p>
         <div class="bulk-action-line"><button id="add-bulk-row" class="btn btn-secondary" type="button">Adicionar linha</button><button id="review-bulk-grid" class="btn btn-primary" type="button">Conferir linhas preenchidas</button><button id="clear-bulk-grid" class="btn btn-ghost" type="button">Limpar tabela</button></div>
       </div>
-      <p class="bulk-hint" style="margin:0 23px 22px">Ceará (Juazeiro do Norte), SRT Ouricuri, SRT Araripina Redes e SRT Dormentes usam estimativas rodoviárias de ida e volta desde Belo Jardim, sem os deslocamentos entre clientes.</p>
+      <p class="bulk-hint" style="margin:0 23px 22px">Ceará (Juazeiro do Norte), SRT Ouricuri, SRT Araripina Redes, SRT Dormentes e SRT Cabrobó (Santa Maria da Boa Vista) usam estimativas rodoviárias de ida e volta desde Belo Jardim, sem os deslocamentos entre clientes.</p>
       <div id="bulk-review" class="bulk-review is-hidden" aria-live="polite">
         <div class="bulk-review-head"><div><h3>Conferência da importação</h3><p id="bulk-review-summary"></p></div><button id="cancel-bulk-review" class="icon-btn" type="button" aria-label="Fechar conferência">Fechar</button></div>
         <ul id="bulk-errors" class="bulk-errors is-hidden"></ul>
@@ -94,7 +94,7 @@
         <div class="queue-body">
           <div id="queue-empty" class="empty-state"><div><div class="empty-icon">+</div><strong>Nenhuma rota planejada</strong><p>Preencha o formulário acima para começar o planejamento.</p></div></div>
           <div id="queue-filled" class="is-hidden">
-            <div class="load-table-wrap"><table class="load-table"><thead><tr><th>#</th><th>Rota</th><th>Perfil</th><th>Carros</th><th>Peso (Ton) / por carro</th><th>KM</th><th>Utilização</th><th>Resultado</th><th>Ações</th></tr></thead><tbody id="load-rows"></tbody></table></div>
+            <div class="load-table-wrap"><table class="load-table"><thead><tr><th>#</th><th>Rota</th><th>Perfil</th><th>Carros</th><th>Peso (Ton) / por carro</th><th title="Peso total mínimo para atingir a meta do frete próprio, considerando todos os carros da rota">Peso viável</th><th>KM</th><th title="Soma do atendimento de todos os clientes, sem deslocamento">Tempo total</th><th>Utilização</th><th>Resultado</th><th>Ações</th></tr></thead><tbody id="load-rows"></tbody></table></div>
             <div class="queue-footer"><button id="clear-all" class="btn btn-danger" type="button">Excluir todas</button><button id="go-summary" class="btn btn-primary" type="button">Ver resumo consolidado</button></div>
           </div>
         </div>
@@ -107,7 +107,7 @@
       <div id="summary-content" class="summary-content is-hidden">
         <div id="stat-grid" class="stat-grid"></div>
         <div class="summary-layout">
-          <div class="detail-card"><div class="card-head"><h3>Detalhamento do planejamento</h3><span>Pesos exibidos em toneladas (Ton)</span></div><div class="detail-table-wrap"><table class="detail-table"><thead><tr><th>#</th><th>Rota</th><th>Perfil</th><th class="center">Carros</th><th>R$/KM</th><th class="num">Peso total (Ton)</th><th class="num">Peso/carro (Ton)</th><th class="center">KM</th><th class="num">Custo</th><th class="num">R$/KG</th><th class="num">Meta</th><th class="num">Viab./saldo</th><th class="num">Util.</th><th class="center">Entr.</th></tr></thead><tbody id="detail-rows"></tbody></table></div></div>
+          <div class="detail-card"><div class="card-head"><h3>Detalhamento do planejamento</h3><span>Pesos exibidos em toneladas (Ton)</span></div><div class="detail-table-wrap"><table class="detail-table"><thead><tr><th>#</th><th>Rota</th><th>Perfil</th><th class="center">Carros</th><th>R$/KM</th><th class="num">Peso total (Ton)</th><th class="num">Peso/carro (Ton)</th><th class="num" title="Peso total mínimo para atingir a meta do frete próprio, considerando todos os carros da rota">Peso viável</th><th class="center">KM</th><th class="num">Custo</th><th class="num">R$/KG</th><th class="num">Meta</th><th class="num">Viab./saldo</th><th class="num">Util.</th><th class="center" title="Soma do atendimento de todos os clientes, sem deslocamento">Tempo total</th></tr></thead><tbody id="detail-rows"></tbody></table></div><p class="planning-notes"><span><strong>Tempo:</strong> 30 min por cliente de varejo e 3 h por cliente de rede, sem deslocamento.</span><span><strong>Peso viável:</strong> custo total ÷ R$/META, para frete próprio e todos os carros da rota. Transportadora considera valor da carga e frete.</span></p></div>
           <div class="side-stack">
             <div class="side-card"><h3>Utilização por perfil</h3><div id="profile-summary"></div></div>
             <div id="own-viability-card" class="side-card viability-card"><h3>Viabilidade do frete próprio</h3><div id="own-viability"></div></div>
@@ -122,7 +122,7 @@
   <canvas id="export-canvas" hidden></canvas><div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script src="jszip.min.js"></script>
-  <script src="data.js"></script>
-  <script src="app.js"></script>
+  <script src="./data.js"></script>
+  <script src="./app.js"></script>
 </body>
 </html>

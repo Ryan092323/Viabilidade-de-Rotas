@@ -1,4 +1,4 @@
-// Funcionalidades originais preservadas da versão 14/10/2026.
+// Lógica do painel. Carregue data.js antes deste arquivo.
 const PROFILE_CONFIG = globalThis.APP_DATA.PROFILE_CONFIG;
 const TARGET_CONFIG = globalThis.APP_DATA.TARGET_CONFIG;
 const CUSTOMER_CONFIG = globalThis.APP_DATA.CUSTOMER_CONFIG;
@@ -17,7 +17,7 @@ const STORAGE_KEY="natto-multirotas-v1";
     const normalize=value=>String(value||"").trim().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
     const escapeHtml=value=>String(value??"").replace(/[&<>"']/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[char]));
     const dateLabel=value=>{if(!value)return"SEM DATA";const [y,m,d]=value.split("-");return`${d}/${m}/${y}`};
-    const duration=minutes=>{const h=Math.floor(minutes/60),m=Math.round(minutes%60);return h?`${h}h${String(m).padStart(2,"0")}`:`${m} min`};
+    const duration=minutes=>{const total=Math.round(minutes),h=Math.floor(total/60),m=total%60;return h?`${h}h${String(m).padStart(2,"0")}`:`${m} min`};
     const uid=()=>globalThis.crypto?.randomUUID?.()||`${Date.now()}-${Math.random().toString(16).slice(2)}`;
     const BULK_HEADER_ALIASES={
       route:["ROTA","DESTINO"],profile:["PERFIL","PERFILVEICULO","PERFILDOVEICULO","TIPOVEICULO","TIPODOVEICULO","VEICULO"],vehicleCount:["CARROS","QTDCARROS","QTDDECARROS","QUANTIDADECARROS","QUANTIDADEDECARROS","VEICULOS","QTDVEICULOS","QUANTIDADEVEICULOS"],
@@ -219,13 +219,11 @@ const STORAGE_KEY="natto-multirotas-v1";
       try{
         const doc=frame.contentDocument;
         if(!doc)throw new Error("Não foi possível preparar a imagem do resumo.");
-        // Inclui CSS de arquivos externos (styles.css), não apenas tags <style>.
-        // O exportador precisa do CSS para montar corretamente o resumo no iframe.
-        const styles=[...document.styleSheets].map(sheet=>{
-          try{return [...sheet.cssRules].map(rule=>rule.cssText).join("\n")}
-          catch{return ""} // Ignora folhas de terceiros sem permissão de leitura.
-        }).join("\n");
-        if(!styles.trim())throw new Error("Os estilos do painel não foram carregados. Atualize a página e tente novamente.");
+        // Carrega o CSS externo para que a captura PNG mantenha o layout e as cores.
+        // A ausência do CSS deve gerar erro, nunca um PNG sem formatação.
+        const stylesheetResponse=await fetch("./styles.css");
+        if(!stylesheetResponse.ok)throw new Error("Não foi possível carregar os estilos para exportar o PNG.");
+        const styles=await stylesheetResponse.text();
         doc.open();doc.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><style>${styles}</style><style>
           html{overflow:hidden}body{padding:24px;margin:0;min-height:0;background:#f1f6f3}
           .summary-shell{margin:0}.summary-actions{display:none!important}
@@ -268,6 +266,25 @@ const STORAGE_KEY="natto-multirotas-v1";
     function recordToCalculated(record){const raw=record.raw||{},route=String(raw.route??"").trim(),profile=parseProfile(raw.profile),mode=parseMode(raw.mode),group=parseGroup(raw.group,route),target=parseLocaleNumber(raw.target),loadValue=parseLocaleNumber(raw.loadValue),freightValue=parseLocaleNumber(raw.freightValue),vehicleCount=parseLocaleNumber(raw.vehicleCount),weightUnit="KG",weight=parseWeightNumber(raw.weight,weightUnit);return calculateLoad({id:uid(),route,mode,profile,vehicleCount:Number.isFinite(vehicleCount)?vehicleCount:1,weight,weightUnit,km:raw.km,deliveries:parseLocaleNumber(raw.deliveries),customerType:parseCustomerType(raw.customerType,route),group,target:Number.isFinite(target)?target:TARGET_CONFIG[group].value,loadValue:Number.isFinite(loadValue)?loadValue:"",freightValue:Number.isFinite(freightValue)?freightValue:""})}
     /* Display masses in tonnes; retain normalized kg values for existing calculations and inputs. */
     function formatTon(value){const kg=Number(value);const safe=Number.isFinite(kg)?kg:0;return `${new Intl.NumberFormat("pt-BR",{maximumFractionDigits:5}).format(safe/1000)} Ton`}
+    function routeServiceMinutes(load){return load.deliveries*CUSTOMER_CONFIG[load.customerType].minutes}
+    function routeTimeCell(load){
+      const minutes=routeServiceMinutes(load),customer=CUSTOMER_CONFIG[load.customerType];
+      const title=`${customer.label}: ${customer.short} por cliente, sem deslocamento.${load.vehicleCount>1?` Média por carro: ${duration(minutes/load.vehicleCount)}.`:""}`;
+      return `<strong class="route-duration" title="${escapeHtml(title)}">${duration(minutes)}</strong><span class="load-sub">${integer(load.deliveries)} ${load.deliveries===1?"cliente":"clientes"}</span>`;
+    }
+    function minimumViableWeightKg(load){return load.mode==="OWN"?Math.ceil(load.cost/load.target*100)/100:null}
+    function additionalWeightNeededKg(load){
+      if(load.mode!=="OWN")return null;
+      if(load.viability>=0)return 0;
+      // Work in hundredths of kg to avoid extra weight caused by floating-point subtraction.
+      return Math.max(1,Math.round(minimumViableWeightKg(load)*100)-Math.floor(load.weight*100+1e-7))/100;
+    }
+    function minimumViableWeightCell(load){
+      const weight=minimumViableWeightKg(load);
+      if(weight===null)return '<span title="A viabilidade da transportadora é calculada pelo valor da carga e pelo frete">—</span>';
+      const missing=additionalWeightNeededKg(load),aboveCapacity=weight>load.capacity,title=`Peso total mínimo para atingir a meta, considerando ${integer(load.vehicleCount)} ${load.vehicleCount===1?"carro":"carros"}.`;
+      return `<strong class="minimum-weight${aboveCapacity?" amber":""}" title="${escapeHtml(title)}">${formatTon(weight)}</strong>${missing>0?`<span class="load-sub minimum-shortfall">Faltam ${formatTon(missing)}</span>`:""}${aboveCapacity?'<span class="load-sub minimum-warning">Excede capacidade</span>':""}`;
+    }
     function informedWeightPair(load){return formatTon(load.weight)}
     function renderBulkReview(){
       const review=$("#bulk-review"),valid=bulkPrepared?.valid||[],errors=bulkPrepared?.errors||[],totalVehicles=valid.reduce((sum,item)=>sum+item.load.vehicleCount,0);
@@ -281,13 +298,13 @@ const STORAGE_KEY="natto-multirotas-v1";
       const has=loads.length>0,vehicles=loads.reduce((sum,item)=>sum+item.vehicleCount,0);
       $("#queue-empty").classList.toggle("is-hidden",has);$("#queue-filled").classList.toggle("is-hidden",!has);
       $("#load-count").textContent=has?`${loads.length} ${loads.length===1?"rota":"rotas"} · ${vehicles} ${vehicles===1?"carro":"carros"}`:"0 rotas";
-      $("#load-rows").innerHTML=loads.map((load,index)=>{const status=statusFor(load);return`<tr><td>${index+1}</td><td><span class="load-main">${escapeHtml(load.route)}</span><span class="load-sub">${load.mode==="OWN"?"Frete próprio":"Transportadora"}</span></td><td>${escapeHtml(load.profileLabel)}</td><td class="center"><strong>${integer(load.vehicleCount)}</strong></td><td><strong>${informedWeightPair(load)}</strong><span class="load-sub">${formatTon(load.weightPerVehicle)} / carro</span></td><td>${distance(load.km)}<span class="load-sub">${distance(load.fleetKm)} km frota</span></td><td class="occupancy" style="color:${occupancyColor(load.utilization)}">${percent(load.utilization)}</td><td><span class="status-tag ${status.className}">${status.label}</span><span class="load-sub">${escapeHtml(loadResult(load))}</span></td><td><div class="row-actions"><button class="icon-btn" type="button" data-action="edit" data-id="${load.id}">Editar</button><button class="icon-btn" type="button" data-action="duplicate" data-id="${load.id}">Duplicar</button><button class="icon-btn delete" type="button" data-action="delete" data-id="${load.id}">Excluir</button></div></td></tr>`}).join("")
+      $("#load-rows").innerHTML=loads.map((load,index)=>{const status=statusFor(load);return`<tr><td>${index+1}</td><td><span class="load-main">${escapeHtml(load.route)}</span><span class="load-sub">${load.mode==="OWN"?"Frete próprio":"Transportadora"}</span></td><td>${escapeHtml(load.profileLabel)}</td><td class="center"><strong>${integer(load.vehicleCount)}</strong></td><td><strong>${informedWeightPair(load)}</strong><span class="load-sub">${formatTon(load.weightPerVehicle)} / carro</span></td><td>${minimumViableWeightCell(load)}</td><td>${distance(load.km)}</td><td class="center">${routeTimeCell(load)}</td><td class="occupancy" style="color:${occupancyColor(load.utilization)}">${percent(load.utilization)}</td><td><span class="status-tag ${status.className}">${status.label}</span><span class="load-sub">${escapeHtml(loadResult(load))}</span></td><td><div class="row-actions"><button class="icon-btn" type="button" data-action="edit" data-id="${load.id}">Editar</button><button class="icon-btn" type="button" data-action="duplicate" data-id="${load.id}">Duplicar</button><button class="icon-btn delete" type="button" data-action="delete" data-id="${load.id}">Excluir</button></div></td></tr>`}).join("")
     }
     function renderSummary(){
       const has=loads.length>0;$("#summary-empty").classList.toggle("is-hidden",has);$("#summary-content").classList.toggle("is-hidden",!has);if(!has)return;
       const a=aggregate(),cards=[["Veículos",integer(a.vehicles),`${a.routePlans} planos · ${a.distinctRoutes} rotas`],["Peso planejado",formatTon(a.totalWeight),`Capacidade da frota: ${formatTon(a.totalCapacity)}`],["Entregas",integer(a.totalDeliveries),`${number(a.totalDeliveries/a.vehicles,1)} por veículo`],["KM da frota",distance(a.totalKm),"KM da rota × carros"],["Custo estimado",money(a.totalCost),`R$/KG geral: ${number(a.generalCostPerKg)}`],["Utilização geral",percent(a.utilization),"Peso total ÷ capacidade da frota"]];
       $("#stat-grid").innerHTML=cards.map((card,index)=>`<div class="stat"><span>${card[0]}</span><strong style="color:${index===5?occupancyColor(a.utilization):"#0b8a4b"}">${card[1]}</strong><small>${card[2]}</small></div>`).join("");
-      $("#detail-rows").innerHTML=loads.map((load,index)=>{const over=load.excess>0,negative=load.mode==="OWN"&&load.viability<0;return`<tr class="${over?"over":""} ${negative?"negative":""}"><td>${index+1}</td><td><strong>${escapeHtml(load.route)}</strong></td><td>${escapeHtml(load.profileLabel)}</td><td class="center"><strong>${integer(load.vehicleCount)}</strong></td><td class="num">${load.mode==="OWN"?number(load.rate):"—"}</td><td class="num"><strong>${formatTon(load.weight)}</strong></td><td class="num"><strong>${formatTon(load.weightPerVehicle)}</strong></td><td class="center">${distance(load.km)}<span class="load-sub">${distance(load.fleetKm)} frota</span></td><td class="num">${number(load.cost)}</td><td class="num">${number(load.costPerKg)}</td><td class="num amber">${load.mode==="OWN"?number(load.target):"—"}</td><td class="num ${load.mode==="OWN"?(load.viability>=0?"positive":"negative-text"):(load.financialBalance>=0?"positive":"negative-text")}">${load.mode==="OWN"?signed(load.viability):money(load.financialBalance)}</td><td class="num" style="color:${occupancyColor(load.utilization)};font-weight:850">${percent(load.utilization)}</td><td class="center">${integer(load.deliveries)}</td></tr>`}).join("");
+      $("#detail-rows").innerHTML=loads.map((load,index)=>{const over=load.excess>0,negative=load.mode==="OWN"&&load.viability<0;return`<tr class="${over?"over":""} ${negative?"negative":""}"><td>${index+1}</td><td><strong>${escapeHtml(load.route)}</strong></td><td>${escapeHtml(load.profileLabel)}</td><td class="center"><strong>${integer(load.vehicleCount)}</strong></td><td class="num">${load.mode==="OWN"?number(load.rate):"—"}</td><td class="num"><strong>${formatTon(load.weight)}</strong></td><td class="num"><strong>${formatTon(load.weightPerVehicle)}</strong></td><td class="num">${minimumViableWeightCell(load)}</td><td class="center">${distance(load.km)}</td><td class="num">${number(load.cost)}</td><td class="num">${number(load.costPerKg)}</td><td class="num amber">${load.mode==="OWN"?number(load.target):"—"}</td><td class="num ${load.mode==="OWN"?(load.viability>=0?"positive":"negative-text"):(load.financialBalance>=0?"positive":"negative-text")}">${load.mode==="OWN"?signed(load.viability):money(load.financialBalance)}</td><td class="num" style="color:${occupancyColor(load.utilization)};font-weight:850">${percent(load.utilization)}</td><td class="center">${routeTimeCell(load)}</td></tr>`}).join("");
       $("#profile-summary").innerHTML=a.profiles.map(profile=>{const util=profile.weight/profile.capacity;return`<div class="profile-row"><div class="profile-top"><span>${escapeHtml(profile.label)} · ${profile.count} ${profile.count===1?"veículo":"veículos"}</span><span style="color:${occupancyColor(util)}">${percent(util)}</span></div><div class="bar"><div class="bar-fill" style="width:${Math.min(util,1)*100}%;background:${occupancyColor(util)}"></div></div><div class="profile-meta">${formatTon(profile.weight)} / capacidade ${formatTon(profile.capacity)}</div></div>`}).join("");
       const ownCard=$("#own-viability-card");ownCard.classList.toggle("is-hidden",!a.own.length);if(a.own.length)$("#own-viability").innerHTML=`<div class="viability-grid"><div><span>R$/META ponderado</span><strong>${number(a.weightedTarget)}</strong></div><div><span>R$/KG real</span><strong>${number(a.generalOwnCostPerKg)}</strong></div><div><span>Média (${a.ownVehicles} veículos)</span><strong>${signed(a.overallViability)}</strong></div><div><span>Soma por veículo</span><strong>${signed(a.viabilitySum)}</strong></div></div><p class="viability-note">${money(Math.abs(a.costVariance))} ${a.costVariance>=0?"abaixo":"acima"} do custo-meta · ${a.negativeVehicles} com viabilidade negativa</p>`;
       const contractCard=$("#contract-summary-card");contractCard.classList.toggle("is-hidden",!a.contracted.length);if(a.contracted.length)$("#contract-summary").innerHTML=`<div class="viability-grid"><div><span>Valor das cargas</span><strong>${money(a.contractLoadValue)}</strong></div><div><span>Fretes contratados</span><strong>${money(a.contractFreight)}</strong></div><div><span>Saldo consolidado</span><strong>${money(a.contractBalance)}</strong></div><div><span>Participação do frete</span><strong>${percent(a.contractLoadValue?a.contractFreight/a.contractLoadValue:0)}</strong></div></div>`;

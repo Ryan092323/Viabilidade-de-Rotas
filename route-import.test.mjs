@@ -6,6 +6,10 @@ import assert from "node:assert/strict";
 const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const dataScript = fs.readFileSync(new URL("../data.js", import.meta.url), "utf8");
 const appScript = fs.readFileSync(new URL("../app.js", import.meta.url), "utf8");
+const pageStyle = fs.readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+assert.ok(html.includes('href="./styles.css"'));
+assert.ok(html.includes('src="./data.js"'));
+assert.ok(html.includes('src="./app.js"'));
 
 class FakeClassList {
   values = new Set();
@@ -77,7 +81,7 @@ node("#customer-type").value = "RETAIL";
 node("#target-group").value = "AGRESTE_2";
 vm.createContext(context);
 vm.runInContext(dataScript, context);
-vm.runInContext(`${appScript}\n;globalThis.__test={calculateLoad,aggregate,parseDelimited,matrixToBulkRecords,recordToCalculated,parseDateValue,parseDistanceKm,readForm,readBulkGrid,bulkGridRow,prepareBulk,renderAll,restore,duplicateLoad,editLoad,drawExport,formatTon,ROUTE_KM_AVERAGES,getRouteAverageKm,getLoads:()=>loads,setLoads:value=>{loads=value}};`, context);
+vm.runInContext(`${appScript}\n;globalThis.__test={calculateLoad,aggregate,parseDelimited,matrixToBulkRecords,recordToCalculated,parseDateValue,parseDistanceKm,readForm,readBulkGrid,bulkGridRow,prepareBulk,renderAll,restore,duplicateLoad,editLoad,drawExport,formatTon,duration,routeServiceMinutes,routeTimeCell,minimumViableWeightKg,additionalWeightNeededKg,minimumViableWeightCell,ROUTE_KM_AVERAGES,getRouteAverageKm,getLoads:()=>loads,setLoads:value=>{loads=value}};`, context);
 
 const own = context.__test.calculateLoad({
   id: "a",
@@ -164,6 +168,52 @@ if (Math.abs(multiVehicle.utilization - 0.94) > 0.000001) throw new Error("Utili
 if (multiVehicle.routeTimeMinutes !== 270) throw new Error("Tempo médio por carro incorreto");
 if (tonRoute.weight !== 9400 || tonRoute.weightInput !== 9.4 || tonRoute.weightUnit !== "TON") throw new Error("Conversão de toneladas para kg incorreta");
 if (tonRoute.weightPerVehicle !== 4700 || tonRoute.capacity !== 10000) throw new Error("Divisão da tonelada por carro incorreta");
+
+// Total service time counts every client; the existing average per car stays separate.
+assert.equal(context.__test.routeServiceMinutes(own),480);
+assert.equal(context.__test.routeServiceMinutes(truck),360);
+assert.equal(context.__test.routeServiceMinutes(multiVehicle),540);
+assert.ok(context.__test.routeTimeCell(multiVehicle).includes('>9h00</strong>'));
+assert.ok(context.__test.routeTimeCell(multiVehicle).includes('18 clientes'));
+assert.ok(context.__test.routeTimeCell(multiVehicle).includes('Média por carro: 4h30'));
+assert.equal(context.__test.duration(52*30),'26h00');
+assert.equal(context.__test.duration(119.9),'2h00');
+
+// The displayed minimum must reach viability; one cent of kg less must fall short.
+assert.equal(context.__test.minimumViableWeightKg(own),1551.93);
+assert.equal(context.__test.minimumViableWeightKg(multiVehicle),3182.77);
+assert.equal(context.__test.minimumViableWeightKg(contracted),null);
+for(const load of [own,truck,multiVehicle]){
+  const minimum=context.__test.minimumViableWeightKg(load);
+  const atMinimum=context.__test.calculateLoad({...load,weightInput:minimum,weightUnit:'KG'});
+  const belowMinimum=context.__test.calculateLoad({...load,weightInput:minimum-.01,weightUnit:'KG'});
+  assert.ok(atMinimum.viability>=-1e-12,'Peso mínimo deve atingir a meta');
+  assert.ok(belowMinimum.viability<0,'Abaixo do peso mínimo não deve atingir a meta');
+}
+const overCapacityPlan=context.__test.calculateLoad({...own,weightInput:2000,km:1000});
+assert.ok(context.__test.minimumViableWeightCell(overCapacityPlan).includes('Excede capacidade'));
+assert.ok(!context.__test.minimumViableWeightCell(own).includes('Excede capacidade'));
+assert.ok(context.__test.minimumViableWeightCell(contracted).includes('>—</span>'));
+
+// Show the extra weight, accounting for the existing load and all cars in the plan.
+const shortfallPlans=[
+  [context.__test.calculateLoad({...own,weightInput:1000}),551.93],
+  [context.__test.calculateLoad({...own,weightInput:1451.93}),100],
+  [context.__test.calculateLoad({...multiVehicle,weightInput:3000.005}),182.77],
+];
+for(const [load,expected] of shortfallPlans){
+  assert.equal(context.__test.additionalWeightNeededKg(load),expected);
+  assert.ok(context.__test.minimumViableWeightCell(load).includes(`Faltam ${context.__test.formatTon(expected)}`));
+  const toppedUp=context.__test.calculateLoad({...load,weightInput:load.weight+expected});
+  assert.ok(toppedUp.viability>=0,'Adicionar o peso indicado deve tornar a rota viável');
+}
+const viableBelowRoundedMinimum=context.__test.calculateLoad({...own,weightInput:1551.929});
+for(const load of [own,multiVehicle,viableBelowRoundedMinimum]){
+  assert.equal(context.__test.additionalWeightNeededKg(load),0);
+  assert.ok(!context.__test.minimumViableWeightCell(load).includes('Faltam'));
+}
+assert.equal(context.__test.additionalWeightNeededKg(contracted),null);
+assert.ok(!context.__test.minimumViableWeightCell(contracted).includes('Faltam'));
 
 let invalidVehicleCount = false;
 try {
@@ -427,6 +477,15 @@ for (const selector of ["#load-rows","#detail-rows","#stat-grid","#profile-summa
   assert.ok(node(selector).innerHTML.includes("Ton"),selector);
   assert.ok(!/\d[\d.,]*\s*kg\b/i.test(node(selector).innerHTML),selector);
 }
+for(const selector of ['#load-rows','#detail-rows']){
+  const rows=node(selector).innerHTML;
+  assert.ok(rows.includes('class="route-duration"'));
+  assert.ok(rows.includes('class="minimum-weight'));
+  assert.ok(rows.includes('Faltam 3,65075 Ton'));
+  assert.ok(!rows.includes('km frota'));
+  assert.ok(!/class="load-sub">[^<]*frota/.test(rows));
+  assert.ok(rows.includes('>1.064</td>'),'KM da rota continua visível');
+}
 assert.ok(!node("#detail-rows").innerHTML.includes("Informado:"));
 context.__test.prepareBulk([{rowNumber:2,raw:routeInput}]);
 assert.ok(node("#bulk-preview-rows").innerHTML.includes("9,41 Ton"));
@@ -453,12 +512,15 @@ function snapshotNode(tag,markup=""){
     cloneNode(){const copy=snapshotNode(this.tag,this.markup);copy.childNodes=this.childNodes.map(child=>child.cloneNode(true));return copy;}
   };
 }
-const pageStyle=fs.readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+let cssFetchCount=0;
+context.fetch=async path=>{
+  assert.equal(path,"./styles.css");
+  cssFetchCount++;
+  return {ok:true,text:async()=>pageStyle};
+};
 context.document.fonts={ready:Promise.resolve()};
 context.document.body={appendChild(frame){capture.frames.push(frame);}};
-// Simula a situação real: o CSS está em styles.css, sem <style> no HTML.
 context.document.querySelectorAll=()=>[];
-context.document.styleSheets=[{cssRules:[{cssText:pageStyle}]}];
 node("#summary").getBoundingClientRect=()=>({width:1680});
 node("#summary").querySelector=selector=>selector===".detail-table"?{scrollWidth:1000}:null;
 const originalCreateElement=context.document.createElement;
@@ -501,7 +563,12 @@ assert.ok(exportedSvg.includes("9,41 Ton"));
 assert.ok(exportedSvg.includes("4,705 Ton"));
 assert.ok(exportedSvg.includes("1.064"));
 assert.ok(!/\d[\d.,]*\s*kg\b|PESO KG|KG\/CARRO|PESO INFORM/i.test(exportedSvg));
-for(const label of ["Perfil","R$/KM","Peso total (Ton)","Peso/carro (Ton)","Viab./saldo","Entr."]){assert.ok(exportedSvg.includes(label));}
+for(const label of ["Perfil","R$/KM","Peso total (Ton)","Peso/carro (Ton)","Peso viável","Viab./saldo","Tempo total"]){assert.ok(exportedSvg.includes(label));}
+assert.ok(exportedSvg.includes('class="route-duration"'));
+assert.ok(exportedSvg.includes('class="minimum-weight'));
+assert.ok(exportedSvg.includes('Faltam 3,65075 Ton'));
+assert.ok(exportedSvg.includes('sem deslocamento'));
+assert.ok(!/class="load-sub">[^<]*frota/.test(exportedSvg));
 assert.equal(context.__test.getLoads()[0].weight,9410);
 assert.ok(Math.abs(context.__test.getLoads()[0].cost-12342.4)<1e-8);
 
@@ -552,6 +619,12 @@ console.log(JSON.stringify({
   exportedSiteDomAndStyles:true,
   exportedSideBySideLayout:true,
   exportFailureCleanupAndRetry:true,
+  totalServiceTimeRetailAndNetwork:true,
+  totalTimePreservesMultipleCarsAndOver24Hours:true,
+  minimumWeightReachesViability:true,
+  extraWeightNeededIncludesCurrentWeightAndCars:true,
+  minimumWeightCapacityWarning:true,
+  duplicateFleetKmRemoved:true,
   registeredAverageRoutes:42,
   averageKmAutofill:true,
   explicitAndSavedKmPreserved:true,
