@@ -1,6 +1,6 @@
 # Painel de Viabilidade de Rotas
 
-Versão 20, atualizada em 14/10/2026, atualizada com o KM automático de 42 rotas (37 médias cadastradas e 5 estimativas rodoviárias), formulário acima das rotas planejadas e exibição dos pesos apenas em toneladas (Ton). Site estático em HTML, CSS e JavaScript, pronto para GitHub e Cloudflare Pages. A calculadora funciona no navegador, sem conta, assinatura ou API do ChatGPT.
+Atualizado em 17/10/2026 com as novas metas regionais de viabilidade e com o KM automático de 42 rotas (37 médias cadastradas e 5 estimativas rodoviárias), formulário acima das rotas planejadas e exibição dos pesos apenas em toneladas (Ton). Site estático em HTML, CSS e JavaScript, pronto para GitHub e Cloudflare Pages. A calculadora funciona no navegador, sem conta, assinatura ou API do ChatGPT.
 
 ## Publicar com GitHub e Cloudflare Pages
 
@@ -28,6 +28,25 @@ O mesmo ZIP também está pronto para o envio de arquivos do Cloudflare Pages. C
 
 Para atualizar pelo GitHub automaticamente, use desde o início o procedimento anterior. Um projeto criado com upload direto exige outro projeto para adotar a integração com Git posteriormente.
 
+## Metas de viabilidade atualizadas em 17/10/2026
+
+| Região | Meta (R$/kg) |
+| --- | ---: |
+| AG1 | 0,270 |
+| AG2 | 0,270 |
+| SRT | 0,793 |
+| CE | 0,954 |
+| PB | 0,555 |
+| AL | 0,966 |
+
+A rota preenche sua meta automaticamente. As metas padrão anteriores são atualizadas nas cargas salvas e nas importações de planilhas antigas. O formulário continua permitindo ajustes manuais. O resumo e o PNG exibem as metas com três casas decimais. O peso mínimo viável e o peso que falta são recalculados pelas novas metas.
+
+## Correção do detalhamento
+
+O resumo exibe as colunas alinhadas: Peso total da rota, Peso/carro, Peso mínimo viável, KM e Tempo total. As rotas inviáveis também mostram quanto peso falta para atingir a meta.
+
+Exemplo conferido: AG1 CARUARU com 15.208 kg, 3 carros 3/4, 157,47 km e meta de 0,270 R$/KG mostra **15,208 Ton de peso total**, **5,06933 Ton por carro** e **10,14807 Ton de peso mínimo viável**. Para 71 clientes de varejo, o atendimento total é de **35h30**.
+
 ## O que está incluído
 
 - Planejamento de várias rotas, manualmente, colando dados ou importando `.xlsx`, `.csv` e `.tsv`.
@@ -41,7 +60,7 @@ Para atualizar pelo GitHub automaticamente, use desde o início o procedimento a
 - Custo, utilização, viabilidade média e soma e resumo consolidado.
 - Tempo total dos atendimentos: 30 minutos por cliente de varejo e 3 horas por cliente de rede, somando todos os clientes da rota e sem deslocamento. Tempo e quantidade de clientes aparecem juntos no detalhamento.
 - Peso mínimo viável do frete próprio em Ton, calculado por custo total ÷ R$/META e considerando todos os carros da rota.
-- Nas rotas inviáveis de frete próprio, a coluna Peso viável informa **Faltam X Ton**, indicando o peso adicional para atingir a meta.
+- Nas rotas inviáveis de frete próprio, o campo de peso mínimo viável informa **Faltam X Ton**, indicando o peso adicional para atingir a meta.
 - Aviso quando o peso mínimo viável excede a capacidade dos carros planejados.
 - KM da rota exibido em uma única linha, com a informação repetida de KM frota retirada das tabelas.
 - Exportação em PNG usando o conteúdo e os estilos do resumo, com detalhamento das rotas à esquerda e painéis de resumo à direita, em resolução duplicada para melhorar a leitura.
@@ -71,10 +90,7 @@ Ao abrir o novo endereço do Cloudflare, importe novamente as planilhas de orige
 
 | Arquivo | Finalidade |
 | --- | --- |
-| `index.html` | Estrutura da interface |
-| `styles.css` | Estilos da interface, impressão e exportação PNG |
-| `data.js` | Perfis, capacidades, metas, tempos de espera e KM por rota |
-| `app.js` | Cálculos, importações, relatórios, PNG e armazenamento |
+| `index.html` | Interface e cálculos completos da aplicação |
 | `jszip.min.js` | Biblioteca local utilizada para ler arquivos Excel |
 | `natto-logo.png` | Logotipo utilizado no painel |
 | `tests/route-import.test.mjs` | Verificações dos cálculos, importações e fluxo de exportação |
@@ -89,14 +105,3 @@ Não há etapa de compilação, instalação de pacotes ou configuração de ban
 - [Cloudflare Pages — integração com Git](https://developers.cloudflare.com/pages/get-started/git-integration/)
 - [Cloudflare Pages — upload direto](https://developers.cloudflare.com/pages/get-started/direct-upload/)
 - [GitHub — enviar arquivos para um repositório](https://docs.github.com/en/repositories/working-with-files/managing-files/adding-a-file-to-a-repository)
-
-
-## Organização desta versão para GitHub + Cloudflare Pages
-
-A lógica e os dados da versão 20 foram preservados e separados em `index.html`, `styles.css`, `data.js` e `app.js`. Não há instalação de dependências ou build. Os arquivos devem ficar juntos na raiz do repositório, juntamente com `jszip.min.js` e `natto-logo.png`.
-
-**Correção preventiva do PNG:** a exportação carrega explicitamente `styles.css` antes de gerar a imagem, mantendo cores, colunas e tipografia. Se o arquivo de estilos não puder ser carregado, a exportação avisa sobre o erro em vez de baixar uma imagem desformatada. Para testar a exportação localmente, abra o projeto em um servidor HTTP local (por exemplo, `python -m http.server 8000`), não por `file://`.
-
-**Testes:** execute `node tests/route-import.test.mjs` com Node.js instalado. O teste cobre cálculos, importação e fluxo de exportação, incluindo carregamento dos estilos externos. A validação automatizada não substitui um teste visual em um navegador real.
-
-**Dados anteriores:** os planejamentos ficam no armazenamento local do navegador e não são transportados dentro do ZIP. Faça backup das planilhas originais e dos relatórios antes de trocar o endereço do site.

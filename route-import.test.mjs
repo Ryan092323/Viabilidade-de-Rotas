@@ -4,12 +4,8 @@ import crypto from "node:crypto";
 import assert from "node:assert/strict";
 
 const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
-const dataScript = fs.readFileSync(new URL("../data.js", import.meta.url), "utf8");
-const appScript = fs.readFileSync(new URL("../app.js", import.meta.url), "utf8");
-const pageStyle = fs.readFileSync(new URL("../styles.css", import.meta.url), "utf8");
-assert.ok(html.includes('href="./styles.css"'));
-assert.ok(html.includes('src="./data.js"'));
-assert.ok(html.includes('src="./app.js"'));
+const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(match => match[1]);
+if (scripts.length !== 1) throw new Error(`Esperado 1 script, encontrado ${scripts.length}`);
 
 class FakeClassList {
   values = new Set();
@@ -64,7 +60,7 @@ const context = {
   setTimeout() { return 1; },
   clearTimeout() {},
   confirm() { return true; },
-  localStorage: { getItem() { return null; }, setItem() {} },
+  localStorage: { getItem() { return JSON.stringify({date:'2026-10-14',loads:[{id:'startup-caruaru',route:'AG1 CARUARU',mode:'OWN',profile:'3/4',vehicleCount:3,weight:15208,km:157.47,deliveries:71,customerType:'RETAIL',group:'AGRESTE_1',target:.441}]}); }, setItem() {} },
   document: {
     modelContext: undefined,
     querySelector: selector=>selector==="#route-rows"?null:node(selector),
@@ -80,8 +76,74 @@ node("#freight-mode").value = "OWN";
 node("#customer-type").value = "RETAIL";
 node("#target-group").value = "AGRESTE_2";
 vm.createContext(context);
-vm.runInContext(dataScript, context);
-vm.runInContext(`${appScript}\n;globalThis.__test={calculateLoad,aggregate,parseDelimited,matrixToBulkRecords,recordToCalculated,parseDateValue,parseDistanceKm,readForm,readBulkGrid,bulkGridRow,prepareBulk,renderAll,restore,duplicateLoad,editLoad,drawExport,formatTon,duration,routeServiceMinutes,routeTimeCell,minimumViableWeightKg,additionalWeightNeededKg,minimumViableWeightCell,ROUTE_KM_AVERAGES,getRouteAverageKm,getLoads:()=>loads,setLoads:value=>{loads=value}};`, context);
+// A hosted page may contain older globals; the current app must use its own bindings.
+vm.runInContext('const PROFILE_CONFIG={legacy:true};const fields={};function renderSummary(){throw new Error("Legacy summary used");}',context);
+const expose=';globalThis.__test={calculateLoad,aggregate,parseDelimited,matrixToBulkRecords,recordToCalculated,parseDateValue,parseDistanceKm,readForm,readBulkGrid,bulkGridRow,prepareBulk,renderAll,restore,duplicateLoad,editLoad,drawExport,formatTon,duration,routeServiceMinutes,routeTimeCell,minimumViableWeightKg,additionalWeightNeededKg,minimumViableWeightCell,ROUTE_KM_AVERAGES,getRouteAverageKm,getLoads:()=>loads,setLoads:value=>{loads=value}};';
+const runnable=scripts[0].replace('    /* Application startup. */',expose+'\n    /* Application startup. */');
+assert.notEqual(runnable,scripts[0]);
+vm.runInContext(runnable,context);
+for(const name of ['renderSummary','renderQueue','drawExport']){
+  assert.equal([...scripts[0].matchAll(new RegExp(`function ${name}\\(`,'g'))].length,1,`Gerador único: ${name}`);
+}
+function detailCells(){
+  const headers=[...node('#detail-head').innerHTML.matchAll(/<th data-col="([^"]+)"/g)].map(m=>m[1]);
+  const rows=[...node('#detail-rows').innerHTML.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)].map(row=>[...row[1].matchAll(/<td data-col="([^"]+)"[^>]*>([\s\S]*?)<\/td>/g)]);
+  assert.equal(headers.length,15);
+  for(const cells of rows){assert.deepEqual(cells.map(m=>m[1]),headers,'Títulos e células devem estar alinhados');}
+  return rows.map(cells=>Object.fromEntries(cells.map(m=>[m[1],m[2]])));
+}
+// Reproduce the first line in the user's screenshot at actual app startup.
+const startupCells=detailCells()[0];
+assert.ok(startupCells['total-weight'].includes('15,208 Ton'));
+assert.ok(startupCells['weight-per-car'].includes('5,06933 Ton'));
+assert.ok(startupCells['minimum-weight'].includes('10,14807 Ton'));
+assert.equal(startupCells.km,'157,47');
+assert.ok(startupCells['service-time'].includes('35h30'));
+assert.ok(startupCells['service-time'].includes('71 clientes'));
+
+// New regional goals apply to manual entry, imports and old saved plans.
+const regionalGoals=[
+  ['AG1 CARUARU','AGRESTE_1',.270,.441],
+  ['AG2 GARANHUNS','AGRESTE_2',.270,.441],
+  ['SRT PETROLINA','SERTAO',.793,.945],
+  ['CEARA','CE',.954,.7],
+  ['PB CAMPINA GRANDE','PB',.555,.56],
+  ['AL MACEIO','AL',.966,.91],
+  ['AG2 PETROLANDIA','SERTAO',.793,.945],
+];
+assert.equal(context.__test.getLoads()[0].target,.270,'Recalcular a meta do planejamento antigo ao abrir');
+assert.equal(startupCells.target,'0,270');
+const legacyPlans=[];
+for(const [route,group,expected,previous] of regionalGoals){
+  node('#route').value=route;node('#route').dispatchEvent({type:'change'});
+  assert.equal(node('#target-group').value,group,route);
+  assert.equal(Number(node('#target').value),expected,route);
+  const raw={route,profile:'3/4',weight:'1000',deliveries:'2',km:'100'};
+  for(const target of [undefined,String(previous).replace('.',',')]){
+    const load=context.__test.recordToCalculated({raw:{...raw,target}});
+    assert.equal(load.target,expected,`Meta importada: ${route}`);
+    assert.ok(Math.abs(load.viability-(expected-.58))<1e-10);
+    const min=context.__test.minimumViableWeightKg(load);
+    assert.ok(context.__test.calculateLoad({...load,weightInput:min}).viability>=0);
+    const extra=context.__test.additionalWeightNeededKg(load);
+    assert.ok(context.__test.calculateLoad({...load,weightInput:load.weight+extra}).viability>=0);
+  }
+  legacyPlans.push({id:route,route,group,mode:'OWN',profile:'3/4',weight:1000,km:100,deliveries:2,customerType:'RETAIL',target:previous});
+}
+const originalStoredPlans=context.localStorage.getItem;
+context.localStorage.getItem=()=>JSON.stringify({loads:legacyPlans});
+context.__test.restore();
+assert.deepEqual(Array.from(context.__test.getLoads(),l=>l.target),regionalGoals.map(row=>row[2]));
+context.__test.renderAll();
+assert.deepEqual(detailCells().map(row=>row.target),['0,270','0,270','0,793','0,954','0,555','0,966','0,793']);
+// Manual adjustments made in the current form survive calculation and restoration.
+node('#target-group').value='AGRESTE_1';node('#target').value='.441';
+const custom=context.__test.calculateLoad({...legacyPlans[0],...context.__test.readForm(),route:'AG1 CARUARU',mode:'OWN',profile:'3/4',vehicleCount:1,weight:1000,weightUnit:'KG',km:100,deliveries:2,customerType:'RETAIL'});
+assert.equal(custom.target,.441);
+context.localStorage.getItem=()=>JSON.stringify({loads:[custom]});context.__test.restore();
+assert.equal(context.__test.getLoads()[0].target,.441);
+context.localStorage.getItem=originalStoredPlans;
+context.__test.restore();
 
 const own = context.__test.calculateLoad({
   id: "a",
@@ -95,7 +157,7 @@ const own = context.__test.calculateLoad({
   deliveries: 16,
   customerType: "RETAIL",
   group: "AGRESTE_1",
-  target: 0.441,
+  target: 0.270,
 });
 const truck = context.__test.calculateLoad({
   id: "b",
@@ -109,7 +171,7 @@ const truck = context.__test.calculateLoad({
   deliveries: 2,
   customerType: "NETWORK",
   group: "AGRESTE_1",
-  target: 0.441,
+  target: 0.270,
 });
 const contracted = context.__test.calculateLoad({
   id: "c",
@@ -137,7 +199,7 @@ const multiVehicle = context.__test.calculateLoad({
   deliveries: 18,
   customerType: "RETAIL",
   group: "AGRESTE_1",
-  target: 0.441,
+  target: 0.270,
 });
 const tonRoute = context.__test.calculateLoad({
   id: "e",
@@ -151,11 +213,11 @@ const tonRoute = context.__test.calculateLoad({
   deliveries: 18,
   customerType: "RETAIL",
   group: "AGRESTE_1",
-  target: 0.441,
+  target: 0.270,
 });
 
 if (Math.abs(own.cost - 684.4) > 0.001) throw new Error("Custo próprio incorreto");
-if (Math.abs(own.viability - (0.441 - 684.4 / 2800)) > 0.000001) throw new Error("Viabilidade própria incorreta");
+if (Math.abs(own.viability - (0.270 - 684.4 / 2800)) > 0.000001) throw new Error("Viabilidade própria incorreta");
 if ("plate" in own || "oc" in own) throw new Error("OC ou placa ainda fazem parte do planejamento");
 if (truck.capacity !== 12000 || truck.excess !== 0) throw new Error("Capacidade do Truck incorreta");
 if (contracted.financialBalance !== 41400) throw new Error("Saldo contratado incorreto");
@@ -180,8 +242,8 @@ assert.equal(context.__test.duration(52*30),'26h00');
 assert.equal(context.__test.duration(119.9),'2h00');
 
 // The displayed minimum must reach viability; one cent of kg less must fall short.
-assert.equal(context.__test.minimumViableWeightKg(own),1551.93);
-assert.equal(context.__test.minimumViableWeightKg(multiVehicle),3182.77);
+assert.equal(context.__test.minimumViableWeightKg(own),2534.82);
+assert.equal(context.__test.minimumViableWeightKg(multiVehicle),5198.52);
 assert.equal(context.__test.minimumViableWeightKg(contracted),null);
 for(const load of [own,truck,multiVehicle]){
   const minimum=context.__test.minimumViableWeightKg(load);
@@ -197,9 +259,9 @@ assert.ok(context.__test.minimumViableWeightCell(contracted).includes('>—</spa
 
 // Show the extra weight, accounting for the existing load and all cars in the plan.
 const shortfallPlans=[
-  [context.__test.calculateLoad({...own,weightInput:1000}),551.93],
-  [context.__test.calculateLoad({...own,weightInput:1451.93}),100],
-  [context.__test.calculateLoad({...multiVehicle,weightInput:3000.005}),182.77],
+  [context.__test.calculateLoad({...own,weightInput:1000}),1534.82],
+  [context.__test.calculateLoad({...own,weightInput:2434.82}),100],
+  [context.__test.calculateLoad({...multiVehicle,weightInput:3000.005}),2198.52],
 ];
 for(const [load,expected] of shortfallPlans){
   assert.equal(context.__test.additionalWeightNeededKg(load),expected);
@@ -207,7 +269,7 @@ for(const [load,expected] of shortfallPlans){
   const toppedUp=context.__test.calculateLoad({...load,weightInput:load.weight+expected});
   assert.ok(toppedUp.viability>=0,'Adicionar o peso indicado deve tornar a rota viável');
 }
-const viableBelowRoundedMinimum=context.__test.calculateLoad({...own,weightInput:1551.929});
+const viableBelowRoundedMinimum=context.__test.calculateLoad({...own,weightInput:2534.819});
 for(const load of [own,multiVehicle,viableBelowRoundedMinimum]){
   assert.equal(context.__test.additionalWeightNeededKg(load),0);
   assert.ok(!context.__test.minimumViableWeightCell(load).includes('Faltam'));
@@ -324,7 +386,7 @@ if (context.__test.recordToCalculated(excelNumbers.records[0]).km !== 1064) thro
 // The single-route form and the multi-row grid must follow the same rule.
 Object.entries({"#route":"SRT PETROLINA REDES","#profile":"3/4","#freight-mode":"OWN",
   "#vehicle-count":"2","#weight":"9.41","#weight-unit":"TON","#km":"1.064",
-  "#deliveries":"1","#customer-type":"NETWORK","#target-group":"SERTAO","#target":"0.945"})
+  "#deliveries":"1","#customer-type":"NETWORK","#target-group":"SERTAO","#target":"0.793"})
   .forEach(([selector,value])=>{node(selector).value=value;});
 const manualKm = context.__test.calculateLoad(context.__test.readForm());
 if (manualKm.km !== 1064 || Math.abs(manualKm.cost - importedKm.cost) > 0.001) throw new Error("KM do formulário manual incorreto");
@@ -481,7 +543,7 @@ for(const selector of ['#load-rows','#detail-rows']){
   const rows=node(selector).innerHTML;
   assert.ok(rows.includes('class="route-duration"'));
   assert.ok(rows.includes('class="minimum-weight'));
-  assert.ok(rows.includes('Faltam 3,65075 Ton'));
+  assert.ok(rows.includes('Faltam 6,15419 Ton'));
   assert.ok(!rows.includes('km frota'));
   assert.ok(!/class="load-sub">[^<]*frota/.test(rows));
   assert.ok(rows.includes('>1.064</td>'),'KM da rota continua visível');
@@ -495,8 +557,8 @@ const capture={height:900,imageError:false,frames:[],links:[],stylesCopied:0};
 const summaryTemplate=html.match(/<section id="summary"[\s\S]*?<\/section>/)[0];
 function summaryMarkup(){
   let markup=summaryTemplate;
-  for(const id of ["stat-grid","detail-rows","profile-summary","own-viability","contract-summary","overload-summary","summary-foot"]){
-    markup=markup.replace(new RegExp(`(<(?:div|tbody) id="${id}"[^>]*>)(<\\/(?:div|tbody)>)`),(_,start,end)=>start+node(`#${id}`).innerHTML+end);
+  for(const id of ["stat-grid","detail-head","detail-rows","profile-summary","own-viability","contract-summary","overload-summary","summary-foot"]){
+    markup=markup.replace(new RegExp(`(<(?:div|tbody|tr) id="${id}"[^>]*>)(<\\/(?:div|tbody|tr)>)`),(_,start,end)=>start+node(`#${id}`).innerHTML+end);
   }
   markup=markup.replace(/(<h3 id="overload-title">)[\s\S]*?(<\/h3>)/,(_,start,end)=>start+node("#overload-title").textContent+end);
   for(const id of ["summary-empty","summary-content","own-viability-card","contract-summary-card"]){
@@ -512,15 +574,10 @@ function snapshotNode(tag,markup=""){
     cloneNode(){const copy=snapshotNode(this.tag,this.markup);copy.childNodes=this.childNodes.map(child=>child.cloneNode(true));return copy;}
   };
 }
-let cssFetchCount=0;
-context.fetch=async path=>{
-  assert.equal(path,"./styles.css");
-  cssFetchCount++;
-  return {ok:true,text:async()=>pageStyle};
-};
+const pageStyle=html.match(/<style>([\s\S]*?)<\/style>/)[1];
 context.document.fonts={ready:Promise.resolve()};
 context.document.body={appendChild(frame){capture.frames.push(frame);}};
-context.document.querySelectorAll=()=>[];
+context.document.querySelectorAll=selector=>selector==="style"?[{textContent:pageStyle}]:[];
 node("#summary").getBoundingClientRect=()=>({width:1680});
 node("#summary").querySelector=selector=>selector===".detail-table"?{scrollWidth:1000}:null;
 const originalCreateElement=context.document.createElement;
@@ -553,7 +610,7 @@ async function exportPanelScenario(loads,height=900){
   assert.ok(!capture.svg.includes("summary-actions"));
   assert.ok(!capture.svg.includes("Resumo por rota"));
   assert.ok(capture.svg.indexOf('class="detail-card"')<capture.svg.indexOf('class="side-stack"'));
-  for(const id of ["stat-grid","detail-rows","profile-summary","own-viability","contract-summary","overload-summary","summary-foot"]){
+  for(const id of ["stat-grid","detail-head","detail-rows","profile-summary","own-viability","contract-summary","overload-summary","summary-foot"]){
     assert.ok(capture.svg.includes(node(`#${id}`).innerHTML),`Conteúdo do site preservado: ${id}`);
   }
   return capture.svg;
@@ -563,10 +620,10 @@ assert.ok(exportedSvg.includes("9,41 Ton"));
 assert.ok(exportedSvg.includes("4,705 Ton"));
 assert.ok(exportedSvg.includes("1.064"));
 assert.ok(!/\d[\d.,]*\s*kg\b|PESO KG|KG\/CARRO|PESO INFORM/i.test(exportedSvg));
-for(const label of ["Perfil","R$/KM","Peso total (Ton)","Peso/carro (Ton)","Peso viável","Viab./saldo","Tempo total"]){assert.ok(exportedSvg.includes(label));}
+for(const label of ["Perfil","R$/KM","Peso total da rota","Peso/carro","Peso mínimo viável","Viab./saldo","Tempo total"]){assert.ok(exportedSvg.includes(label));}
 assert.ok(exportedSvg.includes('class="route-duration"'));
 assert.ok(exportedSvg.includes('class="minimum-weight'));
-assert.ok(exportedSvg.includes('Faltam 3,65075 Ton'));
+assert.ok(exportedSvg.includes('Faltam 6,15419 Ton'));
 assert.ok(exportedSvg.includes('sem deslocamento'));
 assert.ok(!/class="load-sub">[^<]*frota/.test(exportedSvg));
 assert.equal(context.__test.getLoads()[0].weight,9410);
@@ -597,6 +654,22 @@ await node("#download-png").listeners.click[0]();
 assert.equal(node("#download-png").disabled,false);assert.equal(capture.links.length,0);
 capture.imageError=false;
 context.__test.setLoads([importedKm]);
+
+// Check the actual form, import confirmation and date listeners, not just direct calls.
+context.__test.setLoads([]);
+node('#cancel-edit').listeners.click[0]();
+for(const [selector,value] of Object.entries({'#route':'AG1 CARUARU','#freight-mode':'OWN','#profile':'3/4','#vehicle-count':'3','#weight':'15208','#weight-unit':'KG','#km':'157,47','#deliveries':'71','#customer-type':'RETAIL','#target-group':'AGRESTE_1','#target':'0.270'}))node(selector).value=value;
+node('#load-form').listeners.submit[0]({preventDefault(){}});
+assert.ok(detailCells()[0]['minimum-weight'].includes('10,14807 Ton'));
+node('#summary-date').dispatchEvent({type:'change'});
+assert.ok(detailCells()[0]['total-weight'].includes('15,208 Ton'));
+context.__test.prepareBulk([{rowNumber:2,raw:{route:'AG1 CARUARU REDES',profile:'3/4',vehicleCount:3,weight:14600,deliveries:5}}]);
+node('#confirm-bulk').listeners.click[0]();
+const importedCells=detailCells().at(-1);
+assert.ok(importedCells['total-weight'].includes('14,6 Ton'));
+assert.ok(importedCells['minimum-weight'].includes('7,13723 Ton'));
+assert.ok(importedCells['service-time'].includes('15h00'));
+context.__test.setLoads([importedKm]);
 node("#summary-date").value="2026-10-14";
 const downloading=node("#download-png").listeners.click[0]();
 assert.equal(node("#download-png").disabled,true);
@@ -612,6 +685,9 @@ assert.equal(capture.frames.length,frameCount);
 context.__test.setLoads([importedKm]);
 
 console.log(JSON.stringify({
+  regionalTargetsUpdated:true,
+  legacyTargetsRecalculated:true,
+  targetPrecisionThreeDecimals:true,
   weightDisplayOnlyTon:true,
   exportedImageWeightsOnlyTon:true,
   exportedConditionalPanels:true,
@@ -623,6 +699,9 @@ console.log(JSON.stringify({
   totalTimePreservesMultipleCarsAndOver24Hours:true,
   minimumWeightReachesViability:true,
   extraWeightNeededIncludesCurrentWeightAndCars:true,
+  summaryHeaderAndCellsAlwaysAligned:true,
+  startupManualImportAndDateRenderWeights:true,
+  summaryRendererIsolatedFromOlderGlobals:true,
   minimumWeightCapacityWarning:true,
   duplicateFleetKmRemoved:true,
   registeredAverageRoutes:42,
