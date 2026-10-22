@@ -6,6 +6,8 @@ import assert from "node:assert/strict";
 const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(match => match[1]);
 if (scripts.length !== 1) throw new Error(`Esperado 1 script, encontrado ${scripts.length}`);
+// Live-reload servers must inject before the real body end, never inside an export template.
+assert.ok(!/<\/body\s*>/i.test(scripts[0]));
 
 class FakeClassList {
   values = new Set();
@@ -96,54 +98,78 @@ function detailCells(){
 const startupCells=detailCells()[0];
 assert.ok(startupCells['total-weight'].includes('15,208 Ton'));
 assert.ok(startupCells['weight-per-car'].includes('5,06933 Ton'));
-assert.ok(startupCells['minimum-weight'].includes('10,14807 Ton'));
+assert.ok(startupCells['minimum-weight'].includes('12,23205 Ton'));
 assert.equal(startupCells.km,'157,47');
 assert.ok(startupCells['service-time'].includes('35h30'));
 assert.ok(startupCells['service-time'].includes('71 clientes'));
 
-// New regional goals apply to manual entry, imports and old saved plans.
-const regionalGoals=[
-  ['AG1 CARUARU','AGRESTE_1',.270,.441],
-  ['AG2 GARANHUNS','AGRESTE_2',.270,.441],
-  ['SRT PETROLINA','SERTAO',.793,.945],
-  ['CEARA','CE',.954,.7],
-  ['PB CAMPINA GRANDE','PB',.555,.56],
-  ['AL MACEIO','AL',.966,.91],
-  ['AG2 PETROLANDIA','SERTAO',.793,.945],
+// Destination goals from the user table: manual form, old imports, stored plans and network variants.
+const destinationGoals=[
+ ['AG2 BELO JARDIM','AGRESTE_2',.144],['AG2 PESQUEIRA','AGRESTE_2',.194],
+ ['AG2 SAO CAITANO','AGRESTE_2',.218],['AG2 SAO BENTO DO UNA','AGRESTE_2',.219],
+ ['AG1 CARUARU','AGRESTE_1',.224],['PB MONTEIRO','PB',.232],['AG2 ARCOVERDE','AGRESTE_2',.241],
+ ['AG2 GARANHUNS','AGRESTE_2',.253],['AG2 LAJEDO','AGRESTE_2',.269],['AG2 VENTUROSA','AGRESTE_2',.292],
+ ['AG1 AGRESTINA','AGRESTE_1',.305],['AG1 STC CAPIBARIBE','AGRESTE_1',.310],['AG1 JATAUBA','AGRESTE_1',.310],
+ ['AG2 SAO JOAO','AGRESTE_2',.328],['AG2 BOM CONSELHO','AGRESTE_2',.342],['AG1 BONITO','AGRESTE_1',.343],
+ ['AG2 SALOA','AGRESTE_2',.350],['AG1 BEZERROS','AGRESTE_1',.358],['AG2 BUIQUE','AGRESTE_2',.376],
+ ['AG1 CUPIRA','AGRESTE_1',.397],['AG2 AGUAS BELAS','AGRESTE_2',.417],['AG1 SURUBIM','AGRESTE_1',.420],
+ ['RN NATAL DIRETA','RN',.447],['PB PATOS','PB',.467],['SRT FLORESTA','SERTAO',.488],
+ ['AG2 CORRENTES','AGRESTE_2',.509],['SRT SERRA TALHADA','SERTAO',.510],['SRT BETANIA','SERTAO',.516],
+ ['AL MACEIO','AL',.544],['SRT INGAZEIRA','SERTAO',.553],['RN MOSSORO','RN',.611],
+ ['SRT SAO JOSE DO','SERTAO',.612],['CEARA','CE',.645],['PB CAMPINA GRANDE','PB',.658],
+ ['AG2 PETROLANDIA','SERTAO',.679],['SRT BEIRA DO RIO','SERTAO',.698],['SRT CABROBO','SERTAO',.708],
+ ['SRT SERTANIA','SERTAO',.778],['SRT PAULO AFONSO','SERTAO',.793],['SRT PETROLINA','SERTAO',.845],
+ ['AL ARAPIRACA','AL',.873],['SRT MIRANDIBA','SERTAO',.881],['SRT SALGUEIRO','SERTAO',.926],
+ ['SRT SERRITA','SERTAO',.944],['SRT OURICURI','SERTAO',.985],['SRT ARARIPINA','SERTAO',1.056],
+ ['SRT DORMENTES','SERTAO',1.364],['MARANHAO','MARANHAO',3.231],
 ];
-assert.equal(context.__test.getLoads()[0].target,.270,'Recalcular a meta do planejamento antigo ao abrir');
-assert.equal(startupCells.target,'0,270');
+const oldRegionalGoals={AGRESTE_1:.270,AGRESTE_2:.270,SERTAO:.793,CE:.954,PB:.555,AL:.966,RN:1.6,MARANHAO:1.6};
+assert.equal(context.__test.getLoads()[0].target,.224,'Atualizar a meta do planejamento antigo ao abrir');
+assert.equal(startupCells.target,'0,224');
 const legacyPlans=[];
-for(const [route,group,expected,previous] of regionalGoals){
-  node('#route').value=route;node('#route').dispatchEvent({type:'change'});
-  assert.equal(node('#target-group').value,group,route);
-  assert.equal(Number(node('#target').value),expected,route);
-  const raw={route,profile:'3/4',weight:'1000',deliveries:'2',km:'100'};
-  for(const target of [undefined,String(previous).replace('.',',')]){
-    const load=context.__test.recordToCalculated({raw:{...raw,target}});
-    assert.equal(load.target,expected,`Meta importada: ${route}`);
-    assert.ok(Math.abs(load.viability-(expected-.58))<1e-10);
-    const min=context.__test.minimumViableWeightKg(load);
-    assert.ok(context.__test.calculateLoad({...load,weightInput:min}).viability>=0);
-    const extra=context.__test.additionalWeightNeededKg(load);
-    assert.ok(context.__test.calculateLoad({...load,weightInput:load.weight+extra}).viability>=0);
+for(const [route,group,expected] of destinationGoals){
+ const bare=route.replace(/^(AG1|AG2|SRT|AL|PB|RN|CE) /,'');
+ for(const name of new Set([route,bare,route+' REDES',bare+' REDE'])){
+  node('#route').value=name;node('#route').dispatchEvent({type:'change'});
+  assert.equal(node('#target-group').value,group,name);
+  assert.equal(Number(node('#target').value),expected,name);
+  const raw={route:name,profile:'3/4',weight:'1000',deliveries:'2',km:'100'};
+  for(const target of [undefined,String(oldRegionalGoals[group]).replace('.',','),'0,999']){
+   const load=context.__test.recordToCalculated({raw:{...raw,target,group:'CE'}});
+   assert.equal(load.target,expected,`Meta por destino sobrepõe a meta antiga da planilha: ${name}`);
+   assert.equal(load.group,group);
+   assert.ok(Math.abs(load.viability-(expected-.58))<1e-10);
+   const min=context.__test.minimumViableWeightKg(load);
+   assert.ok(context.__test.calculateLoad({...load,weightInput:min}).viability>=0);
+   const extra=context.__test.additionalWeightNeededKg(load);
+   assert.ok(context.__test.calculateLoad({...load,weightInput:load.weight+extra}).viability>=0);
   }
-  legacyPlans.push({id:route,route,group,mode:'OWN',profile:'3/4',weight:1000,km:100,deliveries:2,customerType:'RETAIL',target:previous});
+ }
+ legacyPlans.push({id:route,route,group,mode:'OWN',profile:'3/4',weight:1000,km:100,deliveries:2,customerType:'RETAIL',target:oldRegionalGoals[group],targetRevision:'2026-10-17'});
 }
+for(const [route,expected] of [
+ ['AG2 SAO BENTO',.219],['SAO BENTO',.219],['AG1 STC CAPIBA',.310],['STC CAPIBA',.310],
+ ['CE CEARA',.645],['PB CAMPINA',.658],['AG2 SAO CAETANO',.218],['São Caetano',.218],
+ ['  ag2   águas belas  ',.417],['AL Maceió Redes',.544],['Garanhuns',.253],['JUAZEIRO DO NORTE',.645]
+]){
+ const load=context.__test.recordToCalculated({raw:{route,profile:'3/4',weight:1000,km:100,deliveries:2}});
+ assert.equal(load.target,expected,route);
+}
+// Matching is exact; a different unlisted route keeps the regional fallback or its manual meta.
+const unknown=context.__test.recordToCalculated({raw:{route:'AG2 PESQUEIRA NOVA',profile:'3/4',weight:1000,km:100,deliveries:2}});
+assert.equal(unknown.target,.270);
 const originalStoredPlans=context.localStorage.getItem;
-context.localStorage.getItem=()=>JSON.stringify({loads:legacyPlans});
-context.__test.restore();
-assert.deepEqual(Array.from(context.__test.getLoads(),l=>l.target),regionalGoals.map(row=>row[2]));
+context.localStorage.getItem=()=>JSON.stringify({loads:legacyPlans});context.__test.restore();
+assert.deepEqual(Array.from(context.__test.getLoads(),l=>l.target),destinationGoals.map(row=>row[2]));
 context.__test.renderAll();
-assert.deepEqual(detailCells().map(row=>row.target),['0,270','0,270','0,793','0,954','0,555','0,966','0,793']);
-// Manual adjustments made in the current form survive calculation and restoration.
+assert.deepEqual(detailCells().map(row=>row.target),destinationGoals.map(row=>row[2].toFixed(3).replace('.',',')));
+// Manual adjustments made in this version survive restoration.
 node('#target-group').value='AGRESTE_1';node('#target').value='.441';
-const custom=context.__test.calculateLoad({...legacyPlans[0],...context.__test.readForm(),route:'AG1 CARUARU',mode:'OWN',profile:'3/4',vehicleCount:1,weight:1000,weightUnit:'KG',km:100,deliveries:2,customerType:'RETAIL'});
+const custom=context.__test.calculateLoad({...context.__test.readForm(),route:'AG1 CARUARU',mode:'OWN',profile:'3/4',vehicleCount:1,weight:1000,weightUnit:'KG',km:100,deliveries:2,customerType:'RETAIL'});
 assert.equal(custom.target,.441);
 context.localStorage.getItem=()=>JSON.stringify({loads:[custom]});context.__test.restore();
 assert.equal(context.__test.getLoads()[0].target,.441);
-context.localStorage.getItem=originalStoredPlans;
-context.__test.restore();
+context.localStorage.getItem=originalStoredPlans;context.__test.restore();
 
 const own = context.__test.calculateLoad({
   id: "a",
@@ -157,7 +183,7 @@ const own = context.__test.calculateLoad({
   deliveries: 16,
   customerType: "RETAIL",
   group: "AGRESTE_1",
-  target: 0.270,
+  target: 0.224,
 });
 const truck = context.__test.calculateLoad({
   id: "b",
@@ -171,7 +197,7 @@ const truck = context.__test.calculateLoad({
   deliveries: 2,
   customerType: "NETWORK",
   group: "AGRESTE_1",
-  target: 0.270,
+  target: 0.224,
 });
 const contracted = context.__test.calculateLoad({
   id: "c",
@@ -199,7 +225,7 @@ const multiVehicle = context.__test.calculateLoad({
   deliveries: 18,
   customerType: "RETAIL",
   group: "AGRESTE_1",
-  target: 0.270,
+  target: 0.224,
 });
 const tonRoute = context.__test.calculateLoad({
   id: "e",
@@ -213,11 +239,11 @@ const tonRoute = context.__test.calculateLoad({
   deliveries: 18,
   customerType: "RETAIL",
   group: "AGRESTE_1",
-  target: 0.270,
+  target: 0.224,
 });
 
 if (Math.abs(own.cost - 684.4) > 0.001) throw new Error("Custo próprio incorreto");
-if (Math.abs(own.viability - (0.270 - 684.4 / 2800)) > 0.000001) throw new Error("Viabilidade própria incorreta");
+if (Math.abs(own.viability - (0.224 - 684.4 / 2800)) > 0.000001) throw new Error("Viabilidade própria incorreta");
 if ("plate" in own || "oc" in own) throw new Error("OC ou placa ainda fazem parte do planejamento");
 if (truck.capacity !== 12000 || truck.excess !== 0) throw new Error("Capacidade do Truck incorreta");
 if (contracted.financialBalance !== 41400) throw new Error("Saldo contratado incorreto");
@@ -242,8 +268,8 @@ assert.equal(context.__test.duration(52*30),'26h00');
 assert.equal(context.__test.duration(119.9),'2h00');
 
 // The displayed minimum must reach viability; one cent of kg less must fall short.
-assert.equal(context.__test.minimumViableWeightKg(own),2534.82);
-assert.equal(context.__test.minimumViableWeightKg(multiVehicle),5198.52);
+assert.equal(context.__test.minimumViableWeightKg(own),3055.36);
+assert.equal(context.__test.minimumViableWeightKg(multiVehicle),6266.08);
 assert.equal(context.__test.minimumViableWeightKg(contracted),null);
 for(const load of [own,truck,multiVehicle]){
   const minimum=context.__test.minimumViableWeightKg(load);
@@ -259,9 +285,9 @@ assert.ok(context.__test.minimumViableWeightCell(contracted).includes('>—</spa
 
 // Show the extra weight, accounting for the existing load and all cars in the plan.
 const shortfallPlans=[
-  [context.__test.calculateLoad({...own,weightInput:1000}),1534.82],
-  [context.__test.calculateLoad({...own,weightInput:2434.82}),100],
-  [context.__test.calculateLoad({...multiVehicle,weightInput:3000.005}),2198.52],
+  [context.__test.calculateLoad({...own,weightInput:1000}),2055.36],
+  [context.__test.calculateLoad({...own,weightInput:2955.36}),100],
+  [context.__test.calculateLoad({...multiVehicle,weightInput:3000.005}),3266.08],
 ];
 for(const [load,expected] of shortfallPlans){
   assert.equal(context.__test.additionalWeightNeededKg(load),expected);
@@ -269,8 +295,8 @@ for(const [load,expected] of shortfallPlans){
   const toppedUp=context.__test.calculateLoad({...load,weightInput:load.weight+expected});
   assert.ok(toppedUp.viability>=0,'Adicionar o peso indicado deve tornar a rota viável');
 }
-const viableBelowRoundedMinimum=context.__test.calculateLoad({...own,weightInput:2534.819});
-for(const load of [own,multiVehicle,viableBelowRoundedMinimum]){
+const viableBelowRoundedMinimum=context.__test.calculateLoad({...own,weightInput:3055.359});
+for(const load of [multiVehicle,viableBelowRoundedMinimum]){
   assert.equal(context.__test.additionalWeightNeededKg(load),0);
   assert.ok(!context.__test.minimumViableWeightCell(load).includes('Faltam'));
 }
@@ -386,7 +412,7 @@ if (context.__test.recordToCalculated(excelNumbers.records[0]).km !== 1064) thro
 // The single-route form and the multi-row grid must follow the same rule.
 Object.entries({"#route":"SRT PETROLINA REDES","#profile":"3/4","#freight-mode":"OWN",
   "#vehicle-count":"2","#weight":"9.41","#weight-unit":"TON","#km":"1.064",
-  "#deliveries":"1","#customer-type":"NETWORK","#target-group":"SERTAO","#target":"0.793"})
+  "#deliveries":"1","#customer-type":"NETWORK","#target-group":"SERTAO","#target":"0.845"})
   .forEach(([selector,value])=>{node(selector).value=value;});
 const manualKm = context.__test.calculateLoad(context.__test.readForm());
 if (manualKm.km !== 1064 || Math.abs(manualKm.cost - importedKm.cost) > 0.001) throw new Error("KM do formulário manual incorreto");
@@ -543,7 +569,7 @@ for(const selector of ['#load-rows','#detail-rows']){
   const rows=node(selector).innerHTML;
   assert.ok(rows.includes('class="route-duration"'));
   assert.ok(rows.includes('class="minimum-weight'));
-  assert.ok(rows.includes('Faltam 6,15419 Ton'));
+  assert.ok(rows.includes('Faltam 5,1964 Ton'));
   assert.ok(!rows.includes('km frota'));
   assert.ok(!/class="load-sub">[^<]*frota/.test(rows));
   assert.ok(rows.includes('>1.064</td>'),'KM da rota continua visível');
@@ -623,7 +649,7 @@ assert.ok(!/\d[\d.,]*\s*kg\b|PESO KG|KG\/CARRO|PESO INFORM/i.test(exportedSvg));
 for(const label of ["Perfil","R$/KM","Peso total da rota","Peso/carro","Peso mínimo viável","Viab./saldo","Tempo total"]){assert.ok(exportedSvg.includes(label));}
 assert.ok(exportedSvg.includes('class="route-duration"'));
 assert.ok(exportedSvg.includes('class="minimum-weight'));
-assert.ok(exportedSvg.includes('Faltam 6,15419 Ton'));
+assert.ok(exportedSvg.includes('Faltam 5,1964 Ton'));
 assert.ok(exportedSvg.includes('sem deslocamento'));
 assert.ok(!/class="load-sub">[^<]*frota/.test(exportedSvg));
 assert.equal(context.__test.getLoads()[0].weight,9410);
@@ -658,16 +684,16 @@ context.__test.setLoads([importedKm]);
 // Check the actual form, import confirmation and date listeners, not just direct calls.
 context.__test.setLoads([]);
 node('#cancel-edit').listeners.click[0]();
-for(const [selector,value] of Object.entries({'#route':'AG1 CARUARU','#freight-mode':'OWN','#profile':'3/4','#vehicle-count':'3','#weight':'15208','#weight-unit':'KG','#km':'157,47','#deliveries':'71','#customer-type':'RETAIL','#target-group':'AGRESTE_1','#target':'0.270'}))node(selector).value=value;
+for(const [selector,value] of Object.entries({'#route':'AG1 CARUARU','#freight-mode':'OWN','#profile':'3/4','#vehicle-count':'3','#weight':'15208','#weight-unit':'KG','#km':'157,47','#deliveries':'71','#customer-type':'RETAIL','#target-group':'AGRESTE_1','#target':'0.224'}))node(selector).value=value;
 node('#load-form').listeners.submit[0]({preventDefault(){}});
-assert.ok(detailCells()[0]['minimum-weight'].includes('10,14807 Ton'));
+assert.ok(detailCells()[0]['minimum-weight'].includes('12,23205 Ton'));
 node('#summary-date').dispatchEvent({type:'change'});
 assert.ok(detailCells()[0]['total-weight'].includes('15,208 Ton'));
 context.__test.prepareBulk([{rowNumber:2,raw:{route:'AG1 CARUARU REDES',profile:'3/4',vehicleCount:3,weight:14600,deliveries:5}}]);
 node('#confirm-bulk').listeners.click[0]();
 const importedCells=detailCells().at(-1);
 assert.ok(importedCells['total-weight'].includes('14,6 Ton'));
-assert.ok(importedCells['minimum-weight'].includes('7,13723 Ton'));
+assert.ok(importedCells['minimum-weight'].includes('8,60291 Ton'));
 assert.ok(importedCells['service-time'].includes('15h00'));
 context.__test.setLoads([importedKm]);
 node("#summary-date").value="2026-10-14";
@@ -685,7 +711,9 @@ assert.equal(capture.frames.length,frameCount);
 context.__test.setLoads([importedKm]);
 
 console.log(JSON.stringify({
-  regionalTargetsUpdated:true,
+  destinationTargetsUpdated:48,
+  prefixedAndUnprefixedAliases:true,
+  networkRoutesUseDestinationMeta:true,
   legacyTargetsRecalculated:true,
   targetPrecisionThreeDecimals:true,
   weightDisplayOnlyTon:true,

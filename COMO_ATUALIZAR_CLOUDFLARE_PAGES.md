@@ -1,26 +1,32 @@
-# Publicar no Cloudflare Pages (modelo do painel anterior)
+# Atualizar Painel de Viabilidade de Rotas — 22/10/2026 (Cloudflare Pages)
 
-Este pacote é **Cloudflare Pages**, não Cloudflare Workers. Não precisa de Wrangler, GitHub Actions, D1, npm ou comando de build.
+Este ZIP usa o **mesmo modelo Cloudflare Pages** do projeto anterior, sem Workers, Wrangler, banco D1 ou GitHub Actions. Os arquivos de 22/10/2026 foram preservados, incluindo metas por destino, interface, importação/exportação e testes.
 
-## Atualizar o projeto existente `viabilidade-de-rotas.pages.dev`
+## Se `viabilidade-de-rotas.pages.dev` está conectado ao GitHub
 
-1. Extraia este ZIP no computador.
-2. Abra no GitHub o **repositório que já está conectado** ao projeto `viabilidade-de-rotas` no Cloudflare Pages.
-3. Substitua os arquivos antigos pelos arquivos extraídos, preservando `index.html`, `natto-logo.png` e `jszip.min.js` **na raiz** e `tests/` e `docs/` em suas pastas. Não envie o ZIP fechado como único arquivo.
-4. Confirme o commit na branch de produção (normalmente `main`). O Cloudflare Pages fará uma nova implantação automaticamente, se a integração Git estiver ativa.
-5. Acesse `https://viabilidade-de-rotas.pages.dev` e recarregue a página.
+1. Extraia este ZIP no computador. **Não envie apenas o arquivo ZIP para o repositório.**
+2. Abra o repositório GitHub já conectado ao projeto `viabilidade-de-rotas` no Cloudflare Pages.
+3. Substitua os arquivos antigos pelos arquivos extraídos, mantendo `index.html`, `natto-logo.png` e `jszip.min.js` na **raiz** e os arquivos de `docs/` e `tests/` dentro de suas respectivas pastas.
+4. Faça commit na branch de produção (normalmente `main`). O Pages publicará automaticamente, desde que a integração Git esteja ativa.
+5. Abra https://viabilidade-de-rotas.pages.dev e recarregue a página (Ctrl+F5).
 
-**Importante:** Se seu Pages atual foi criado por **upload direto**, ele não atualiza automaticamente pelo GitHub. Nesse caso, abra o projeto no Cloudflare Pages e faça **Create deployment / Upload assets** com este ZIP ou com a pasta extraída.
+Se houver arquivos antigos que não fazem mais parte desta versão, remova-os do repositório para evitar confusão. Não exclua o projeto Pages.
 
-## Configurações para criar um projeto Pages via Git
+## Se o Pages atual foi criado por upload direto
+
+Abra o projeto `viabilidade-de-rotas` no painel Cloudflare, vá em **Deployments → Create deployment / Upload assets** e envie este ZIP (ou os arquivos extraídos, conforme a opção oferecida). Não é necessário criar outro projeto.
+
+## Configuração Pages caso precise conferir
 
 - Framework preset: `None`
 - Build command: `exit 0` (ou vazio, se permitido)
 - Build output directory: `.`
 - Root directory: vazio
-- Production branch: `main` (ou a branch existente)
+- Production branch: `main` ou a branch já usada
 - Variáveis de ambiente: nenhuma
 
-Este pacote não contém `.github/workflows/deploy.yml` nem `wrangler.jsonc`, pois a implantação é gerenciada pelo **Cloudflare Pages**.
+Se aparecer erro 404, confirme que `index.html` está na raiz do repositório e que a saída de build é `.`.
 
-**Atenção à segurança:** este site salva dados no navegador local. Se precisar restringir quem pode abrir o endereço, configure uma aplicação Cloudflare Access para o domínio Pages.
+## Dados e segurança
+
+O painel é estático e os dados salvos no navegador não são sincronizados entre computadores. Atualizar os arquivos do site não transfere dados entre navegadores. Para limitar acesso, configure Cloudflare Access para o domínio Pages.

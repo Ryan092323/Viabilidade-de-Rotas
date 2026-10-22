@@ -1,6 +1,6 @@
 # Painel de Viabilidade de Rotas
 
-Atualizado em 17/10/2026 com as novas metas regionais de viabilidade e com o KM automático de 42 rotas (37 médias cadastradas e 5 estimativas rodoviárias), formulário acima das rotas planejadas e exibição dos pesos apenas em toneladas (Ton). Site estático em HTML, CSS e JavaScript, pronto para GitHub e Cloudflare Pages. A calculadora funciona no navegador, sem conta, assinatura ou API do ChatGPT.
+Atualizado em 22/10/2026 com metas de viabilidade específicas para 48 destinos e com o KM automático de 42 rotas (37 médias cadastradas e 5 estimativas rodoviárias), formulário acima das rotas planejadas e exibição dos pesos apenas em toneladas (Ton). Site estático em HTML, CSS e JavaScript, pronto para GitHub e Cloudflare Pages. A calculadora funciona no navegador, sem conta, assinatura ou API do ChatGPT.
 
 ## Publicar com GitHub e Cloudflare Pages
 
@@ -28,24 +28,22 @@ O mesmo ZIP também está pronto para o envio de arquivos do Cloudflare Pages. C
 
 Para atualizar pelo GitHub automaticamente, use desde o início o procedimento anterior. Um projeto criado com upload direto exige outro projeto para adotar a integração com Git posteriormente.
 
-## Metas de viabilidade atualizadas em 17/10/2026
+## Metas por destino atualizadas em 22/10/2026
 
-| Região | Meta (R$/kg) |
-| --- | ---: |
-| AG1 | 0,270 |
-| AG2 | 0,270 |
-| SRT | 0,793 |
-| CE | 0,954 |
-| PB | 0,555 |
-| AL | 0,966 |
+As novas metas são específicas de cada destino, em R$/kg. A lista completa está em [docs/metas-viabilidade.md](docs/metas-viabilidade.md).
 
-A rota preenche sua meta automaticamente. As metas padrão anteriores são atualizadas nas cargas salvas e nas importações de planilhas antigas. O formulário continua permitindo ajustes manuais. O resumo e o PNG exibem as metas com três casas decimais. O peso mínimo viável e o peso que falta são recalculados pelas novas metas.
+- A rota preenche a meta automaticamente, com ou sem prefixo regional, sem diferenciar acentos, maiúsculas ou espaços repetidos.
+- As variantes Rede e Redes usam a meta do mesmo destino.
+- Cargas salvas e planilhas antigas são recalculadas com as novas metas. Ajustes manuais feitos nesta versão continuam disponíveis.
+- O resumo e o PNG exibem as metas com três casas decimais. O peso mínimo viável e o peso adicional são recalculados em Ton.
+- Garanhuns usa **0,253 R$/kg**, conforme AG2 GARANHUNS e a última ocorrência do nome simples na tabela enviada; as ocorrências de 0,252 foram tratadas como duplicatas anteriores.
+- Os KM já cadastrados são preservados. Destinos com nova meta que ainda não possuem KM médio exigem que o usuário informe a distância.
 
 ## Correção do detalhamento
 
 O resumo exibe as colunas alinhadas: Peso total da rota, Peso/carro, Peso mínimo viável, KM e Tempo total. As rotas inviáveis também mostram quanto peso falta para atingir a meta.
 
-Exemplo conferido: AG1 CARUARU com 15.208 kg, 3 carros 3/4, 157,47 km e meta de 0,270 R$/KG mostra **15,208 Ton de peso total**, **5,06933 Ton por carro** e **10,14807 Ton de peso mínimo viável**. Para 71 clientes de varejo, o atendimento total é de **35h30**.
+Exemplo conferido: AG1 CARUARU com 15.208 kg, 3 carros 3/4, 157,47 km e meta de 0,224 R$/KG mostra **15,208 Ton de peso total**, **5,06933 Ton por carro** e **12,23205 Ton de peso mínimo viável**. Para 71 clientes de varejo, o atendimento total é de **35h30**.
 
 ## O que está incluído
 
@@ -94,6 +92,7 @@ Ao abrir o novo endereço do Cloudflare, importe novamente as planilhas de orige
 | `jszip.min.js` | Biblioteca local utilizada para ler arquivos Excel |
 | `natto-logo.png` | Logotipo utilizado no painel |
 | `tests/route-import.test.mjs` | Verificações dos cálculos, importações e fluxo de exportação |
+| `docs/metas-viabilidade.md` | Metas por destino, equivalências de nomes e regras de atualização |
 | `docs/km-estimados.md` | Fontes e método das estimativas de quilometragem |
 | `JSZIP-LICENSE.txt`, `PAKO-LICENSE.txt` | Licenças das bibliotecas incluídas |
 
