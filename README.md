@@ -39,6 +39,16 @@ As novas metas são específicas de cada destino, em R$/kg. A lista completa est
 - Garanhuns usa **0,253 R$/kg**, conforme AG2 GARANHUNS e a última ocorrência do nome simples na tabela enviada; as ocorrências de 0,252 foram tratadas como duplicatas anteriores.
 - Os KM já cadastrados são preservados. Destinos com nova meta que ainda não possuem KM médio exigem que o usuário informe a distância.
 
+## Custo por KM por rota e perfil (novembro/2026)
+
+O R$/KM deixou de ser um valor único por perfil. Agora cada combinação de **rota × perfil** usa o custo médio da planilha *Custo Médio por KM por Rota e Perfil — Natto, Outubro/2026* (aba "Matriz por Rota"), com 44 rotas e valores arredondados em duas casas.
+
+- Tabela `ROUTE_PROFILE_RATES` no `index.html`; a busca ignora acentos, caixa e espaços repetidos e aceita REDE/REDES.
+- Perfil sem dados na rota (célula vazia na planilha, como Carreta em todas as rotas) e rotas fora da planilha usam o valor padrão do perfil (3/4 R$ 5,80, Toco R$ 5,60, demais R$ 5,30). Na tabela, esses casos aparecem com `*`, e o formulário avisa "Sem dados desta rota para o perfil".
+- O formulário mostra o R$/KM da rota e do perfil escolhidos; custo, viabilidade e peso mínimo viável usam esse valor.
+- Cargas salvas são recalculadas com os novos custos ao abrir.
+- Para atualizar os custos, edite `ROUTE_PROFILE_RATES`.
+
 ## Correção do detalhamento
 
 O resumo exibe as colunas alinhadas: Peso total da rota, Peso/carro, Peso mínimo viável, KM e Tempo total. As rotas inviáveis também mostram quanto peso falta para atingir a meta.

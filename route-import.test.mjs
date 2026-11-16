@@ -80,7 +80,7 @@ node("#target-group").value = "AGRESTE_2";
 vm.createContext(context);
 // A hosted page may contain older globals; the current app must use its own bindings.
 vm.runInContext('const PROFILE_CONFIG={legacy:true};const fields={};function renderSummary(){throw new Error("Legacy summary used");}',context);
-const expose=';globalThis.__test={calculateLoad,aggregate,parseDelimited,matrixToBulkRecords,recordToCalculated,parseDateValue,parseDistanceKm,readForm,readBulkGrid,bulkGridRow,prepareBulk,renderAll,restore,duplicateLoad,editLoad,drawExport,formatTon,duration,routeServiceMinutes,routeTimeCell,minimumViableWeightKg,additionalWeightNeededKg,minimumViableWeightCell,ROUTE_KM_AVERAGES,getRouteAverageKm,getLoads:()=>loads,setLoads:value=>{loads=value}};';
+const expose=';globalThis.__test={resolveProfileRate,calculateLoad,aggregate,parseDelimited,matrixToBulkRecords,recordToCalculated,parseDateValue,parseDistanceKm,readForm,readBulkGrid,bulkGridRow,prepareBulk,renderAll,restore,duplicateLoad,editLoad,drawExport,formatTon,duration,routeServiceMinutes,routeTimeCell,minimumViableWeightKg,additionalWeightNeededKg,minimumViableWeightCell,ROUTE_KM_AVERAGES,getRouteAverageKm,getLoads:()=>loads,setLoads:value=>{loads=value}};';
 const runnable=scripts[0].replace('    /* Application startup. */',expose+'\n    /* Application startup. */');
 assert.notEqual(runnable,scripts[0]);
 vm.runInContext(runnable,context);
@@ -98,7 +98,7 @@ function detailCells(){
 const startupCells=detailCells()[0];
 assert.ok(startupCells['total-weight'].includes('15,208 Ton'));
 assert.ok(startupCells['weight-per-car'].includes('5,06933 Ton'));
-assert.ok(startupCells['minimum-weight'].includes('12,23205 Ton'));
+assert.ok(startupCells['minimum-weight'].includes('19,1073 Ton'));
 assert.equal(startupCells.km,'157,47');
 assert.ok(startupCells['service-time'].includes('35h30'));
 assert.ok(startupCells['service-time'].includes('71 clientes'));
@@ -138,7 +138,7 @@ for(const [route,group,expected] of destinationGoals){
    const load=context.__test.recordToCalculated({raw:{...raw,target,group:'CE'}});
    assert.equal(load.target,expected,`Meta por destino sobrepõe a meta antiga da planilha: ${name}`);
    assert.equal(load.group,group);
-   assert.ok(Math.abs(load.viability-(expected-.58))<1e-10);
+   assert.ok(Math.abs(load.viability-(expected-100*context.__test.resolveProfileRate(name,'3/4').rate/1000))<1e-10);
    const min=context.__test.minimumViableWeightKg(load);
    assert.ok(context.__test.calculateLoad({...load,weightInput:min}).viability>=0);
    const extra=context.__test.additionalWeightNeededKg(load);
@@ -242,8 +242,8 @@ const tonRoute = context.__test.calculateLoad({
   target: 0.224,
 });
 
-if (Math.abs(own.cost - 684.4) > 0.001) throw new Error("Custo próprio incorreto");
-if (Math.abs(own.viability - (0.224 - 684.4 / 2800)) > 0.000001) throw new Error("Viabilidade própria incorreta");
+if (Math.abs(own.cost - 1069.08) > 0.001) throw new Error("Custo próprio incorreto");
+if (Math.abs(own.viability - (0.224 - 1069.08 / 2800)) > 0.000001) throw new Error("Viabilidade própria incorreta");
 if ("plate" in own || "oc" in own) throw new Error("OC ou placa ainda fazem parte do planejamento");
 if (truck.capacity !== 12000 || truck.excess !== 0) throw new Error("Capacidade do Truck incorreta");
 if (contracted.financialBalance !== 41400) throw new Error("Saldo contratado incorreto");
@@ -251,7 +251,7 @@ if (multiVehicle.vehicleCount !== 2) throw new Error("Quantidade de carros incor
 if (multiVehicle.weightPerVehicle !== 4700) throw new Error("Divisão do peso por carro incorreta");
 if (multiVehicle.capacity !== 10000 || multiVehicle.excess !== 0) throw new Error("Capacidade da frota incorreta");
 if (multiVehicle.fleetKm !== 242) throw new Error("KM da frota incorreto");
-if (Math.abs(multiVehicle.cost - 1403.6) > 0.001) throw new Error("Custo da frota incorreto");
+if (Math.abs(multiVehicle.cost - 2192.52) > 0.001) throw new Error("Custo da frota incorreto");
 if (Math.abs(multiVehicle.utilization - 0.94) > 0.000001) throw new Error("Utilização por carro incorreta");
 if (multiVehicle.routeTimeMinutes !== 270) throw new Error("Tempo médio por carro incorreto");
 if (tonRoute.weight !== 9400 || tonRoute.weightInput !== 9.4 || tonRoute.weightUnit !== "TON") throw new Error("Conversão de toneladas para kg incorreta");
@@ -268,8 +268,8 @@ assert.equal(context.__test.duration(52*30),'26h00');
 assert.equal(context.__test.duration(119.9),'2h00');
 
 // The displayed minimum must reach viability; one cent of kg less must fall short.
-assert.equal(context.__test.minimumViableWeightKg(own),3055.36);
-assert.equal(context.__test.minimumViableWeightKg(multiVehicle),6266.08);
+assert.equal(context.__test.minimumViableWeightKg(own),4772.68);
+assert.equal(context.__test.minimumViableWeightKg(multiVehicle),9788.04);
 assert.equal(context.__test.minimumViableWeightKg(contracted),null);
 for(const load of [own,truck,multiVehicle]){
   const minimum=context.__test.minimumViableWeightKg(load);
@@ -285,9 +285,9 @@ assert.ok(context.__test.minimumViableWeightCell(contracted).includes('>—</spa
 
 // Show the extra weight, accounting for the existing load and all cars in the plan.
 const shortfallPlans=[
-  [context.__test.calculateLoad({...own,weightInput:1000}),2055.36],
-  [context.__test.calculateLoad({...own,weightInput:2955.36}),100],
-  [context.__test.calculateLoad({...multiVehicle,weightInput:3000.005}),3266.08],
+  [context.__test.calculateLoad({...own,weightInput:1000}),3772.68],
+  [context.__test.calculateLoad({...own,weightInput:4672.68}),100],
+  [context.__test.calculateLoad({...multiVehicle,weightInput:3000.005}),6788.04],
 ];
 for(const [load,expected] of shortfallPlans){
   assert.equal(context.__test.additionalWeightNeededKg(load),expected);
@@ -295,8 +295,8 @@ for(const [load,expected] of shortfallPlans){
   const toppedUp=context.__test.calculateLoad({...load,weightInput:load.weight+expected});
   assert.ok(toppedUp.viability>=0,'Adicionar o peso indicado deve tornar a rota viável');
 }
-const viableBelowRoundedMinimum=context.__test.calculateLoad({...own,weightInput:3055.359});
-for(const load of [multiVehicle,viableBelowRoundedMinimum]){
+const viableBelowRoundedMinimum=context.__test.calculateLoad({...own,weightInput:4772.679});
+for(const load of [context.__test.calculateLoad({...multiVehicle,weightInput:9800}),viableBelowRoundedMinimum]){
   assert.equal(context.__test.additionalWeightNeededKg(load),0);
   assert.ok(!context.__test.minimumViableWeightCell(load).includes('Faltam'));
 }
@@ -323,7 +323,7 @@ const fleetSummary = context.__test.aggregate();
 if (fleetSummary.vehicles !== 2 || fleetSummary.routePlans !== 1) throw new Error("Rotas e veículos da frota incorretos");
 if (fleetSummary.totalWeight !== 9400 || fleetSummary.totalCapacity !== 10000) throw new Error("Peso ou capacidade da frota incorretos");
 if (fleetSummary.totalKm !== 242 || fleetSummary.totalDeliveries !== 18) throw new Error("KM ou entregas consolidados incorretos");
-if (Math.abs(fleetSummary.totalCost - 1403.6) > 0.001) throw new Error("Custo consolidado da frota incorreto");
+if (Math.abs(fleetSummary.totalCost - 2192.52) > 0.001) throw new Error("Custo consolidado da frota incorreto");
 if (fleetSummary.green !== 2 || fleetSummary.yellow !== 0 || fleetSummary.red !== 0) throw new Error("Faixa de utilização da frota incorreta");
 
 const pasted = context.__test.parseDelimited("OC;PLACA;ROTA;PERFIL;PESO;KM;ENTREGAS\n2521401;ROD6J69;AG1 CARUARU;3/4;3.565,00;123;20\n2521402;PDD7934;AG2 BELO JARDIM;TOCO;2.797,96;43;16");
@@ -390,7 +390,7 @@ for (const input of ["", "   ", "abc", "1..064", "1,064,00", Infinity]) {
 }
 const routeInput = {route:"SRT PETROLINA REDES",profile:"3/4",vehicleCount:"2",weight:"9410",weightUnit:"TON",km:"1.064",deliveries:"1"};
 const importedKm = context.__test.recordToCalculated({raw:routeInput});
-if (importedKm.km !== 1064 || importedKm.fleetKm !== 2128 || Math.abs(importedKm.cost - 12342.4) > 0.001) {
+if (importedKm.km !== 1064 || importedKm.fleetKm !== 2128 || Math.abs(importedKm.cost - 14470.4) > 0.001) {
   throw new Error("1.064 km não recalculou a quilometragem e o custo dos dois carros");
 }
 if (importedKm.weight !== 9410 || importedKm.weightPerVehicle !== 4705) throw new Error("Correção de KM alterou a conversão de toneladas");
@@ -426,7 +426,7 @@ context.__test.prepareBulk([{rowNumber:2,raw:routeInput}]);
 if (!node("#bulk-preview-rows").innerHTML.includes(">1.064</td>")) throw new Error("Conferência ainda exibe 1 km");
 context.__test.setLoads([importedKm]);
 context.__test.renderAll();
-if (!node("#detail-rows").innerHTML.includes(">1.064<") || !node("#detail-rows").innerHTML.includes("12.342,40")) throw new Error("Resumo não mostra KM e custo corrigidos");
+if (!node("#detail-rows").innerHTML.includes(">1.064<") || !node("#detail-rows").innerHTML.includes("14.470,40")) throw new Error("Resumo não mostra KM e custo corrigidos");
 if (context.__test.aggregate().totalKm !== 2128) throw new Error("KM total da frota incorreto");
 
 // Refreshing or duplicating a corrected route must not convert distance or tonnes twice.
@@ -460,7 +460,7 @@ const autoKmInput={route:"AG1 CARUARU",profile:"3/4",vehicleCount:2,weight:"9410
 const autoKm=context.__test.recordToCalculated({raw:autoKmInput});
 assert.equal(autoKm.km,157.47);
 assert.equal(autoKm.fleetKm,314.94);
-assert.ok(Math.abs(autoKm.cost-1826.652)<1e-8);
+assert.ok(Math.abs(autoKm.cost-2853.3564)<1e-8);
 assert.equal(autoKm.weight,9410);
 for (const [input,expected] of [["",157.47],["   ",157.47],["106,25",106.25],["1.064",1064],[0,0]]) {
   assert.equal(context.__test.recordToCalculated({raw:{...autoKmInput,km:input}}).km,expected);
@@ -489,11 +489,11 @@ const estimatedRoutes=context.__test.matrixToBulkRecords(context.__test.parseDel
   "SRT Araripina Redes;TRUCK;2;12.320,04;4\n"+
   "SRT Dormentes;TRUCK;2;12.320,04;4"
 ));
-for (const [index,km] of [828,884,1002,1130].entries()) {
+for (const [index,[km,rate]] of [[828,5.3],[884,6.15],[1002,6.86],[1130,5.3]].entries()) {
   const load=context.__test.recordToCalculated(estimatedRoutes.records[index]);
   assert.equal(load.km,km);
   assert.equal(load.fleetKm,km*2);
-  assert.ok(Math.abs(load.cost-km*2*5.3)<1e-8);
+  assert.ok(Math.abs(load.cost-km*2*rate)<1e-8);
   assert.equal(load.weight,12320.04);
   assert.equal(load.group,index===0?"CE":"SERTAO");
   assert.equal(load.customerType,index===2?"NETWORK":"RETAIL");
@@ -569,7 +569,7 @@ for(const selector of ['#load-rows','#detail-rows']){
   const rows=node(selector).innerHTML;
   assert.ok(rows.includes('class="route-duration"'));
   assert.ok(rows.includes('class="minimum-weight'));
-  assert.ok(rows.includes('Faltam 5,1964 Ton'));
+  assert.ok(rows.includes('Faltam 7,71474 Ton'));
   assert.ok(!rows.includes('km frota'));
   assert.ok(!/class="load-sub">[^<]*frota/.test(rows));
   assert.ok(rows.includes('>1.064</td>'),'KM da rota continua visível');
@@ -649,11 +649,11 @@ assert.ok(!/\d[\d.,]*\s*kg\b|PESO KG|KG\/CARRO|PESO INFORM/i.test(exportedSvg));
 for(const label of ["Perfil","R$/KM","Peso total da rota","Peso/carro","Peso mínimo viável","Viab./saldo","Tempo total"]){assert.ok(exportedSvg.includes(label));}
 assert.ok(exportedSvg.includes('class="route-duration"'));
 assert.ok(exportedSvg.includes('class="minimum-weight'));
-assert.ok(exportedSvg.includes('Faltam 5,1964 Ton'));
+assert.ok(exportedSvg.includes('Faltam 7,71474 Ton'));
 assert.ok(exportedSvg.includes('sem deslocamento'));
 assert.ok(!/class="load-sub">[^<]*frota/.test(exportedSvg));
 assert.equal(context.__test.getLoads()[0].weight,9410);
-assert.ok(Math.abs(context.__test.getLoads()[0].cost-12342.4)<1e-8);
+assert.ok(Math.abs(context.__test.getLoads()[0].cost-14470.4)<1e-8);
 
 // Conditional cards retain the visibility used by the actual summary.
 assert.ok(!node("#own-viability-card").classList.contains("is-hidden"));
@@ -686,14 +686,14 @@ context.__test.setLoads([]);
 node('#cancel-edit').listeners.click[0]();
 for(const [selector,value] of Object.entries({'#route':'AG1 CARUARU','#freight-mode':'OWN','#profile':'3/4','#vehicle-count':'3','#weight':'15208','#weight-unit':'KG','#km':'157,47','#deliveries':'71','#customer-type':'RETAIL','#target-group':'AGRESTE_1','#target':'0.224'}))node(selector).value=value;
 node('#load-form').listeners.submit[0]({preventDefault(){}});
-assert.ok(detailCells()[0]['minimum-weight'].includes('12,23205 Ton'));
+assert.ok(detailCells()[0]['minimum-weight'].includes('19,1073 Ton'));
 node('#summary-date').dispatchEvent({type:'change'});
 assert.ok(detailCells()[0]['total-weight'].includes('15,208 Ton'));
 context.__test.prepareBulk([{rowNumber:2,raw:{route:'AG1 CARUARU REDES',profile:'3/4',vehicleCount:3,weight:14600,deliveries:5}}]);
 node('#confirm-bulk').listeners.click[0]();
 const importedCells=detailCells().at(-1);
 assert.ok(importedCells['total-weight'].includes('14,6 Ton'));
-assert.ok(importedCells['minimum-weight'].includes('8,60291 Ton'));
+assert.ok(importedCells['minimum-weight'].includes('13,43833 Ton'));
 assert.ok(importedCells['service-time'].includes('15h00'));
 context.__test.setLoads([importedKm]);
 node("#summary-date").value="2026-10-14";
@@ -709,6 +709,53 @@ const frameCount=capture.frames.length;
 await assert.rejects(()=>context.__test.drawExport(),/Adicione pelo menos uma rota/);
 assert.equal(capture.frames.length,frameCount);
 context.__test.setLoads([importedKm]);
+
+// R$/KM varia por rota E perfil (planilha Custo Médio por KM, out/2026).
+const rateOf=(route,profile)=>context.__test.resolveProfileRate(route,profile);
+for (const [route,profile,expected] of [
+  ["AG1 CARUARU","3/4",9.06],["AG1 CARUARU","TOCO",6.56],["AG1 CARUARU","TRUCK",6.99],
+  ["SRT ARARIPINA","3/4",4.81],["SRT ARARIPINA","TOCO",6.60],["SRT ARARIPINA","TRUCK",7.57],
+  ["AG2 GARANHUNS","BITRUCK",5.07],["SRT PETROLINA","BITRUCK",5.51],
+  ["AG2 BOM CONSELHO","3/4",8.88],["AG2 LAJEDO","TOCO",4.82],["SRT SERTANIA","3/4",7.82],
+]) {
+  assert.equal(rateOf(route,profile).rate,expected,`${route} ${profile}`);
+  assert.equal(rateOf(route,profile).source,"ROUTE",`${route} ${profile}`);
+}
+// A mesma rota muda de custo conforme o perfil, e o mesmo perfil muda conforme a rota.
+assert.notEqual(rateOf("AG1 CARUARU","3/4").rate,rateOf("AG1 CARUARU","TOCO").rate);
+assert.notEqual(rateOf("AG1 CARUARU","3/4").rate,rateOf("SRT ARARIPINA","3/4").rate);
+// Grafia livre: acentos, caixa, espaços, REDE/REDES e apelidos já usados no KM.
+for (const [name,expected] of [
+  ["  ag2   águas belas  ",6.01],["AL Maceió",6.83],["AL MACEIO REDES",6.83],["ag2 belo jardim rede",6.96],
+  ["AG1 STC CAPIBA REDES",7.55],["AG1 STC CAPIBARIBE REDES",7.55],["SRT S. TALHADA REDES",6.18],
+]) assert.equal(rateOf(name,"3/4").rate,expected,name);
+// Sem dado para o perfil ou rota fora da planilha: usa o padrão do perfil e sinaliza.
+for (const [route,profile,expected] of [
+  ["AG1 CARUARU","BITRUCK",5.3],["AG1 CARUARU","CARRETA",5.3],["PB MONTEIRO","3/4",5.8],["AG2 SAO JOAO","TOCO",5.6],
+]) {
+  assert.deepEqual({...rateOf(route,profile)},{rate:expected,source:"DEFAULT"},`${route} ${profile}`);
+}
+// O custo da carga usa o R$/KM da rota e do perfil.
+const rateCaruaru=context.__test.calculateLoad({id:"r1",route:"AG1 CARUARU",mode:"OWN",profile:"3/4",vehicleCount:1,weight:3000,weightUnit:"KG",km:100,deliveries:5,customerType:"RETAIL",group:"AGRESTE_1",target:.224});
+const rateOuricuri=context.__test.calculateLoad({id:"r2",route:"SRT OURICURI",mode:"OWN",profile:"TRUCK",vehicleCount:2,weight:9000,weightUnit:"KG",km:100,deliveries:5,customerType:"RETAIL",group:"SERTAO",target:.985});
+const rateDefault=context.__test.calculateLoad({id:"r3",route:"AG1 CARUARU",mode:"OWN",profile:"BITRUCK",vehicleCount:1,weight:3000,weightUnit:"KG",km:100,deliveries:5,customerType:"RETAIL",group:"AGRESTE_1",target:.224});
+assert.equal(rateCaruaru.rate,9.06);assert.equal(rateCaruaru.rateSource,"ROUTE");assert.ok(Math.abs(rateCaruaru.cost-906)<1e-9);
+assert.equal(rateOuricuri.rate,6.15);assert.ok(Math.abs(rateOuricuri.cost-1230)<1e-9);
+assert.equal(rateDefault.rate,5.3);assert.equal(rateDefault.rateSource,"DEFAULT");assert.ok(Math.abs(rateDefault.cost-530)<1e-9);
+// Tabela: valor com *, apenas quando o perfil usa o padrão.
+context.__test.setLoads([rateCaruaru,rateDefault]);context.__test.renderAll();
+const rateCells=detailCells();
+assert.equal(rateCells[0].rate,"9,06");
+assert.equal(rateCells[1].rate,"5,30*");
+// Formulário: o R$/KM exibido acompanha a rota e o perfil escolhidos.
+node("#freight-mode").value="OWN";node("#route").value="AG1 CARUARU";node("#profile").value="TOCO";
+node("#route").dispatchEvent({type:"input"});
+assert.ok(node("#profile-rate").textContent.includes("6,56"));
+node("#profile").value="3/4";node("#profile").dispatchEvent({type:"change"});
+assert.ok(node("#profile-rate").textContent.includes("9,06"));
+node("#route").value="PB MONTEIRO";node("#route").dispatchEvent({type:"input"});
+assert.ok(node("#profile-rate").textContent.includes("5,80"));
+assert.ok(/padrão/.test(node("#profile-rate-help").textContent));
 
 console.log(JSON.stringify({
   destinationTargetsUpdated:48,
