@@ -47,6 +47,8 @@ O R$/KM deixou de ser um valor único por perfil. Agora cada combinação de **r
 - Perfil sem dados na rota (célula vazia na planilha, como Carreta em todas as rotas) e rotas fora da planilha usam o valor padrão do perfil (3/4 R$ 5,80, Toco R$ 5,60, demais R$ 5,30). Na tabela, esses casos aparecem com `*`, e o formulário avisa "Sem dados desta rota para o perfil".
 - O formulário mostra o R$/KM da rota e do perfil escolhidos; custo, viabilidade e peso mínimo viável usam esse valor.
 - Cargas salvas são recalculadas com os novos custos ao abrir.
+- Cada rota tem o campo **R$/KM da rota** (ao adicionar ou editar). Em branco usa o custo da planilha; preenchido, sobrescreve o valor naquela rota e aparece com `†` na tabela. Vale para frete próprio e transportadora.
+- Em transportadora, se o **Frete cobrado** ficar em branco, o frete é KM × R$/KM × carros; se for preenchido, ele prevalece.
 - Para atualizar os custos, edite `ROUTE_PROFILE_RATES`.
 
 ## Correção do detalhamento

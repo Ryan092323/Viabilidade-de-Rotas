@@ -757,6 +757,31 @@ node("#route").value="PB MONTEIRO";node("#route").dispatchEvent({type:"input"});
 assert.ok(node("#profile-rate").textContent.includes("5,80"));
 assert.ok(/padrão/.test(node("#profile-rate-help").textContent));
 
+// R$/KM editável por rota (frete próprio e terceiros).
+const baseIn={route:"AG1 CARUARU",profile:"3/4",vehicleCount:2,weight:9000,weightUnit:"KG",km:100,deliveries:5,customerType:"RETAIL",group:"AGRESTE_1",target:.224};
+const ownCustom=context.__test.calculateLoad({...baseIn,id:"e1",mode:"OWN",rateOverride:"7,5"});
+assert.equal(ownCustom.rate,7.5);assert.equal(ownCustom.rateSource,"CUSTOM");assert.equal(ownCustom.rateOverride,7.5);assert.ok(Math.abs(ownCustom.cost-1500)<1e-9);
+const ownBlank=context.__test.calculateLoad({...baseIn,id:"e2",mode:"OWN",rateOverride:""});
+assert.equal(ownBlank.rate,9.06);assert.equal(ownBlank.rateOverride,null);
+const thirdAuto=context.__test.calculateLoad({...baseIn,id:"e3",mode:"CONTRACTED",loadValue:5000,freightValue:"",rateOverride:"8"});
+assert.ok(Math.abs(thirdAuto.freightValue-1600)<1e-9);assert.equal(thirdAuto.freightManual,false);assert.ok(Math.abs(thirdAuto.financialBalance-3400)<1e-9);
+const thirdAutoDefault=context.__test.calculateLoad({...baseIn,id:"e4",mode:"CONTRACTED",loadValue:5000,freightValue:""});
+assert.ok(Math.abs(thirdAutoDefault.freightValue-1812)<1e-9);
+const thirdManual=context.__test.calculateLoad({...baseIn,id:"e5",mode:"CONTRACTED",loadValue:5000,freightValue:1200,rateOverride:"8"});
+assert.equal(thirdManual.freightValue,1200);assert.equal(thirdManual.freightManual,true);
+// Recalcular uma carga salva mantém o R$/KM editado e o frete calculado.
+const reAuto=context.__test.calculateLoad(thirdAuto);
+assert.ok(Math.abs(reAuto.freightValue-1600)<1e-9);assert.equal(reAuto.freightManual,false);
+assert.throws(()=>context.__test.calculateLoad({...baseIn,id:"e6",mode:"OWN",rateOverride:"abc"}));
+assert.throws(()=>context.__test.calculateLoad({...baseIn,id:"e7",mode:"OWN",rateOverride:"0"}));
+// Formulário: editar uma rota carrega o R$/KM digitado e o frete automático.
+context.__test.setLoads([ownCustom,thirdAuto]);
+context.__test.editLoad("e1");assert.equal(node("#rate-override").value,"7,5");
+context.__test.editLoad("e3");assert.equal(node("#rate-override").value,"8");assert.equal(node("#freight-value").value,"");
+assert.ok(node("#profile-rate").textContent.includes("8,00"));
+node("#rate-override").value="";node("#rate-override").dispatchEvent({type:"input"});
+assert.ok(node("#profile-rate").textContent.includes("9,06"));
+
 console.log(JSON.stringify({
   destinationTargetsUpdated:48,
   prefixedAndUnprefixedAliases:true,
