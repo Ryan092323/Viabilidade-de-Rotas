@@ -782,6 +782,23 @@ assert.ok(node("#profile-rate").textContent.includes("8,00"));
 node("#rate-override").value="";node("#rate-override").dispatchEvent({type:"input"});
 assert.ok(node("#profile-rate").textContent.includes("9,06"));
 
+// Custo total editável por rota (ex.: frete de terceiro avaliado contra a meta).
+const costIn={route:"AG1 CARUARU",profile:"3/4",vehicleCount:1,weight:5100,weightUnit:"KG",km:157.47,deliveries:26,customerType:"RETAIL",group:"AGRESTE_1",target:.224,mode:"OWN"};
+const costThird=context.__test.calculateLoad({...costIn,id:"c1",costOverride:"4.000",rateOverride:"7"});
+assert.equal(costThird.cost,4000);assert.equal(costThird.costOverride,4000);assert.equal(costThird.rateSource,"COST");
+assert.ok(Math.abs(costThird.rate-4000/157.47)<1e-9);assert.ok(Math.abs(costThird.viability-(.224-4000/5100))<1e-9);
+assert.equal(context.__test.calculateLoad({...costIn,id:"c2",costOverride:"1.426,5"}).cost,1426.5);
+assert.equal(context.__test.calculateLoad({...costIn,id:"c3",costOverride:""}).costOverride,null);
+assert.ok(Math.abs(context.__test.calculateLoad({...costIn,id:"c3b",costOverride:""}).cost-157.47*9.06)<1e-9);
+assert.equal(context.__test.calculateLoad({...costThird,id:"c4"}).cost,4000);
+const costDecimal=context.__test.calculateLoad({...costIn,id:"c5",costOverride:"1426,5"});
+assert.equal(context.__test.calculateLoad(costDecimal).cost,1426.5);
+assert.throws(()=>context.__test.calculateLoad({...costIn,id:"c6",costOverride:"-5"}));
+assert.equal(context.__test.calculateLoad({...costIn,id:"c7",mode:"CONTRACTED",loadValue:9000,freightValue:2000,costOverride:"4000"}).cost,2000);
+context.__test.setLoads([costThird]);context.__test.editLoad("c1");
+assert.equal(node("#cost-override").value,"4000");
+node("#cost-override").value="";node("#cost-override").dispatchEvent({type:"input"});
+
 console.log(JSON.stringify({
   destinationTargetsUpdated:48,
   prefixedAndUnprefixedAliases:true,

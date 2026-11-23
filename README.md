@@ -48,6 +48,7 @@ O R$/KM deixou de ser um valor único por perfil. Agora cada combinação de **r
 - O formulário mostra o R$/KM da rota e do perfil escolhidos; custo, viabilidade e peso mínimo viável usam esse valor.
 - Cargas salvas são recalculadas com os novos custos ao abrir.
 - Cada rota tem o campo **R$/KM da rota** (ao adicionar ou editar). Em branco usa o custo da planilha; preenchido, sobrescreve o valor naquela rota e aparece com `†` na tabela. Vale para frete próprio e transportadora.
+- Em frete próprio também existe o **Custo total da rota (opcional)**: preenchido, ele substitui KM × R$/KM × carros (ex.: terceiro cobrando R$ 4.000 para Caruaru) e a viabilidade usa esse custo contra a meta. O R$/KM exibido passa a ser o efetivo (custo ÷ KM da frota) e o valor aparece com `†`.
 - Em transportadora, se o **Frete cobrado** ficar em branco, o frete é KM × R$/KM × carros; se for preenchido, ele prevalece.
 - Para atualizar os custos, edite `ROUTE_PROFILE_RATES`.
 
